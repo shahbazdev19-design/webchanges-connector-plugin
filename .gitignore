@@ -1,0 +1,18 @@
+# Build artifacts
+/build/
+*.zip
+
+# WordPress runtime junk that may appear if this folder is symlinked into a live install
+/webchanges-sandbox/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Local secrets — never commit tokens/keys. They live in wp-config or wp_options.
+*.token
+.env

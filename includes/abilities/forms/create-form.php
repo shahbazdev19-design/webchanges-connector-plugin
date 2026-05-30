@@ -1,0 +1,237 @@
+<?php
+
+declare(strict_types=1);
+
+if (!defined('ABSPATH')) {
+    exit();
+}
+
+webchanges_connector_register_ability('forms-create-form', [
+    'label' => __('Create Form', 'webchanges-connector'),
+    'description' => __(
+        'Create a new form on the chosen provider. Pass `fields` as a high-level abstract list ({ type, label, required }); we map each entry to the provider\'s native field schema. Supported types: name, email, text, textarea, phone, url, number, checkbox, select, date. Currently writes to WPForms, Gravity Forms, and Fluent Forms; other providers return a clear error pointing to their plugin UI.',
+        'webchanges-connector'
+    ),
+    'category' => 'webchanges-forms',
+    'input_schema' => [
+        'type' => 'object',
+        'properties' => [
+            'provider' => ['type' => 'string', 'enum' => ['wpforms', 'gravity', 'fluent']],
+            'title' => ['type' => 'string'],
+            'fields' => [
+                'type' => 'array',
+                'items' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'type' => ['type' => 'string', 'enum' => ['name', 'email', 'text', 'textarea', 'phone', 'url', 'number', 'checkbox', 'select', 'date']],
+                        'label' => ['type' => 'string'],
+                        'required' => ['type' => 'boolean'],
+                        'description' => ['type' => 'string'],
+                        'choices' => ['type' => 'array', 'items' => ['type' => 'string']],
+                    ],
+                    'required' => ['type', 'label'],
+                ],
+            ],
+            'notification_email' => ['type' => 'string', 'description' => 'Where to send form submissions. Defaults to the site admin_email.'],
+        ],
+        'required' => ['title', 'fields'],
+        'additionalProperties' => false,
+    ],
+    'output_schema' => [
+        'type' => 'object',
+        'properties' => [
+            'provider' => ['type' => 'string'],
+            'form_id' => ['type' => 'integer'],
+            'shortcode' => ['type' => 'string'],
+        ],
+    ],
+    'execute_callback' => static function (array $input): array {
+        $provider = isset($input['provider']) && $input['provider'] !== '' ? (string) $input['provider'] : webchanges_connector_forms_default_provider();
+        $title = trim((string) ($input['title'] ?? ''));
+        $fields = $input['fields'] ?? [];
+        $notify = (string) ($input['notification_email'] ?? get_option('admin_email'));
+
+        if ($title === '') {
+            return ['success' => false, 'error' => 'title is required'];
+        }
+        if (!is_array($fields) || $fields === []) {
+            return ['success' => false, 'error' => 'fields must be a non-empty array'];
+        }
+
+        $providers = webchanges_connector_forms_providers();
+        if (!isset($providers[$provider]) || empty($providers[$provider]['active'])) {
+            return ['success' => false, 'error' => sprintf('Form provider "%s" is not active. Active providers: %s', $provider, implode(', ', array_keys(array_filter($providers, fn($p) => !empty($p['active'])))))];
+        }
+
+        if ($provider === 'wpforms') {
+            $wp_fields = [];
+            $id = 0;
+            foreach ($fields as $f) {
+                $type_map = [
+                    'name' => 'name', 'email' => 'email', 'text' => 'text', 'textarea' => 'textarea',
+                    'phone' => 'phone', 'url' => 'url', 'number' => 'number', 'checkbox' => 'checkbox',
+                    'select' => 'select', 'date' => 'date-time',
+                ];
+                $native_type = $type_map[$f['type']] ?? 'text';
+                $field = [
+                    'id' => (string) $id,
+                    'type' => $native_type,
+                    'label' => (string) $f['label'],
+                    'required' => !empty($f['required']) ? '1' : '',
+                ];
+                if (!empty($f['description'])) {
+                    $field['description'] = (string) $f['description'];
+                }
+                if (!empty($f['choices']) && is_array($f['choices'])) {
+                    $choices = [];
+                    foreach ($f['choices'] as $i => $c) {
+                        $choices[$i + 1] = ['label' => (string) $c, 'value' => '', 'image' => ''];
+                    }
+                    $field['choices'] = $choices;
+                }
+                $wp_fields[(string) $id] = $field;
+                $id++;
+            }
+            $data = [
+                'id' => '',
+                'field_id' => $id,
+                'fields' => $wp_fields,
+                'settings' => [
+                    'form_title' => $title,
+                    'form_desc' => '',
+                    'submit_text' => __('Submit', 'webchanges-connector'),
+                    'submit_text_processing' => __('Sending...', 'webchanges-connector'),
+                    'notifications' => [
+                        '1' => [
+                            'notification_name' => __('Default Notification', 'webchanges-connector'),
+                            'email' => $notify,
+                            'subject' => sprintf(__('New entry: %s', 'webchanges-connector'), $title),
+                            'sender_name' => get_bloginfo('name'),
+                            'sender_address' => '{admin_email}',
+                            'replyto' => '{field_id="1"}',
+                            'message' => '{all_fields}',
+                        ],
+                    ],
+                ],
+                'meta' => ['template' => ''],
+            ];
+            $form_id = wp_insert_post([
+                'post_type' => 'wpforms',
+                'post_status' => 'publish',
+                'post_title' => $title,
+                'post_excerpt' => '',
+                'post_content' => wp_slash(wp_json_encode($data) ?: ''),
+            ]);
+            if (is_wp_error($form_id) || $form_id === 0) {
+                return ['success' => false, 'error' => is_wp_error($form_id) ? $form_id->get_error_message() : 'Failed to create WPForms form'];
+            }
+            // Persist the id back into the form data (WPForms expects it).
+            $data['id'] = $form_id;
+            wp_update_post([
+                'ID' => $form_id,
+                'post_content' => wp_slash(wp_json_encode($data) ?: ''),
+            ]);
+            return [
+                'provider' => 'wpforms',
+                'form_id' => (int) $form_id,
+                'shortcode' => sprintf('[wpforms id="%d" title="false"]', $form_id),
+            ];
+        }
+
+        if ($provider === 'gravity' && class_exists('GFAPI')) {
+            $gf_fields = [];
+            $id = 1;
+            foreach ($fields as $f) {
+                $type_map = [
+                    'name' => 'name', 'email' => 'email', 'text' => 'text', 'textarea' => 'textarea',
+                    'phone' => 'phone', 'url' => 'website', 'number' => 'number', 'checkbox' => 'checkbox',
+                    'select' => 'select', 'date' => 'date',
+                ];
+                $native_type = $type_map[$f['type']] ?? 'text';
+                $gf_fields[] = [
+                    'id' => $id,
+                    'type' => $native_type,
+                    'label' => (string) $f['label'],
+                    'isRequired' => !empty($f['required']),
+                    'description' => (string) ($f['description'] ?? ''),
+                ];
+                $id++;
+            }
+            $form = [
+                'title' => $title,
+                'description' => '',
+                'fields' => $gf_fields,
+                'notifications' => [
+                    [
+                        'id' => '1',
+                        'name' => 'Admin Notification',
+                        'event' => 'form_submission',
+                        'to' => $notify,
+                        'subject' => sprintf('New entry: %s', $title),
+                        'message' => '{all_fields}',
+                    ],
+                ],
+            ];
+            $form_id = \GFAPI::add_form($form);
+            if (is_wp_error($form_id)) {
+                return ['success' => false, 'error' => $form_id->get_error_message()];
+            }
+            return [
+                'provider' => 'gravity',
+                'form_id' => (int) $form_id,
+                'shortcode' => sprintf('[gravityform id="%d" title="false" description="false"]', $form_id),
+            ];
+        }
+
+        if ($provider === 'fluent' && (defined('FLUENTFORM') || class_exists('FluentForm\\App\\App'))) {
+            global $wpdb;
+            $type_map = [
+                'name' => 'input_name', 'email' => 'input_email', 'text' => 'input_text', 'textarea' => 'textarea',
+                'phone' => 'phone', 'url' => 'input_url', 'number' => 'input_number', 'checkbox' => 'input_checkbox',
+                'select' => 'select', 'date' => 'input_date',
+            ];
+            $ff_fields = [];
+            foreach ($fields as $f) {
+                $native = $type_map[$f['type']] ?? 'input_text';
+                $ff_fields[] = [
+                    'element' => $native,
+                    'attributes' => [
+                        'name' => sanitize_title($f['label']),
+                        'placeholder' => '',
+                        'required' => !empty($f['required']),
+                    ],
+                    'settings' => [
+                        'label' => (string) $f['label'],
+                        'help_message' => (string) ($f['description'] ?? ''),
+                    ],
+                ];
+            }
+            $form_fields = ['fields' => $ff_fields, 'submitButton' => ['uniqElKey' => 'submit', 'element' => 'button', 'attributes' => ['type' => 'submit', 'class' => '']]];
+            $table = $wpdb->prefix . 'fluentform_forms';
+            $now = current_time('mysql');
+            $ok = $wpdb->insert($table, [
+                'title' => $title,
+                'form_fields' => wp_json_encode($form_fields),
+                'status' => 'published',
+                'has_payment' => 0,
+                'type' => 'form',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            if ($ok === false) {
+                return ['success' => false, 'error' => 'Failed to insert Fluent Forms record: ' . $wpdb->last_error];
+            }
+            $form_id = (int) $wpdb->insert_id;
+            return [
+                'provider' => 'fluent',
+                'form_id' => $form_id,
+                'shortcode' => sprintf('[fluentform id="%d"]', $form_id),
+            ];
+        }
+
+        return ['success' => false, 'error' => sprintf('Form creation for "%s" is not yet implemented. Use the plugin admin UI to author the form, then call forms-list-forms / forms-get-form to fetch it.', $provider)];
+    },
+    'meta' => [
+        'annotations' => ['readonly' => false, 'destructive' => true, 'idempotent' => false],
+    ],
+]);

@@ -1,0 +1,59 @@
+name: Release
+
+# Publishes a GitHub Release with a properly-structured plugin ZIP whenever a
+# version tag (v1.2.3) is pushed. The Plugin Update Checker on every connected
+# site reads this Release and surfaces the native "Update" button.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify plugin header matches tag
+        run: |
+          HEADER_VER=$(grep -oP '^\s*\*\s*Version:\s*\K[0-9A-Za-z.\-]+' webchanges-connector.php | head -1)
+          echo "Header version: $HEADER_VER  |  Tag version: ${{ steps.ver.outputs.version }}"
+          if [ "$HEADER_VER" != "${{ steps.ver.outputs.version }}" ]; then
+            echo "::error::Plugin header Version ($HEADER_VER) does not match tag (${{ steps.ver.outputs.version }}). Run bin/release.sh so they stay in sync."
+            exit 1
+          fi
+
+      - name: Build plugin ZIP
+        run: |
+          # Stage the plugin under a top-level folder named exactly
+          # 'webchanges-connector' so WordPress installs/updates it in place.
+          mkdir -p build/webchanges-connector
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.gitignore' \
+            --exclude 'bin' \
+            --exclude 'build' \
+            --exclude '*.md' \
+            ./ build/webchanges-connector/
+          cd build
+          zip -rq webchanges-connector.zip webchanges-connector
+          echo "Built $(du -h webchanges-connector.zip | cut -f1) ZIP"
+          unzip -l webchanges-connector.zip | head -15
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "v${{ steps.ver.outputs.version }}"
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: build/webchanges-connector.zip
