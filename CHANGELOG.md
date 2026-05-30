@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 - 2026-05-26
+
+- bricks-import-html: inline <svg> now imports as a data-URI image (renders without Bricks code execution).
+
 ## 0.3.0 - 2026-05-26
 
 - Bricks: bricks-import-html (HTML/CSS -> native Bricks elements, preserving classes/ids/inline-style/data-* attributes, with <style> saved as page Custom CSS).

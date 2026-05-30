@@ -465,6 +465,15 @@ function webchanges_connector_bricks_html_to_elements(string $html): array
                 $settings['_attributes'] = $attrs;
             }
 
+            // Inline <svg> → a data-URI image, so it renders without Bricks
+            // "code execution" being enabled. Preserved classes keep sizing.
+            if ($tag === 'svg') {
+                $svg_markup = (string) $dom->saveHTML($child);
+                $settings['image'] = ['url' => 'data:image/svg+xml;base64,' . base64_encode($svg_markup), 'external' => true];
+                $elements[] = ['id' => $id, 'name' => 'image', 'parent' => $parent_id, 'children' => [], 'settings' => $settings];
+                continue;
+            }
+
             if ($name === 'image') {
                 if ($child->hasAttribute('src')) {
                     $settings['image'] = ['url' => $child->getAttribute('src'), 'external' => true];
