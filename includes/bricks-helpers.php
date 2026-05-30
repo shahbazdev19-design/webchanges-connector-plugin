@@ -302,3 +302,216 @@ function webchanges_connector_bricks_children_of(array $elements, string $parent
     }
     return [];
 }
+
+/**
+ * Re-id an imported flat Bricks element array so it can be dropped onto a page
+ * without colliding with existing ids. Generates a fresh id per element and
+ * rewrites every parent/children reference. Top-level elements (whose parent is
+ * not part of the set) are re-parented to 0.
+ *
+ * @param list<array<string, mixed>> $elements
+ * @return list<array<string, mixed>>
+ */
+function webchanges_connector_bricks_reid_import(array $elements): array
+{
+    $map = [];
+    $used = [];
+    $gen = static function () use (&$used): string {
+        do {
+            $id = strtolower((string) wp_generate_password(6, false, false));
+        } while (isset($used[$id]));
+        $used[$id] = true;
+        return $id;
+    };
+    foreach ($elements as $el) {
+        $old = (string) ($el['id'] ?? '');
+        if ($old !== '') {
+            $map[$old] = $gen();
+        }
+    }
+    $out = [];
+    foreach ($elements as $el) {
+        $old = (string) ($el['id'] ?? '');
+        if ($old === '' || !isset($map[$old])) {
+            continue;
+        }
+        $el['id'] = $map[$old];
+        $parent = (string) ($el['parent'] ?? '0');
+        $el['parent'] = ($parent !== '0' && isset($map[$parent])) ? $map[$parent] : '0';
+        if (isset($el['children']) && is_array($el['children'])) {
+            $kids = [];
+            foreach ($el['children'] as $c) {
+                $c = (string) $c;
+                if (isset($map[$c])) {
+                    $kids[] = $map[$c];
+                }
+            }
+            $el['children'] = $kids;
+        }
+        $out[] = $el;
+    }
+    return $out;
+}
+
+/**
+ * Map an HTML tag to a Bricks element name. Returns [name, is_text, tag_override].
+ * is_text means the element carries inner content as `settings.text` and is not
+ * recursed into; tag_override sets `settings.tag` (heading level / semantic tag).
+ *
+ * @return array{0:string,1:bool,2:?string}
+ */
+function webchanges_connector_bricks_map_tag(string $tag): array
+{
+    switch ($tag) {
+        case 'section': return ['section', false, null];
+        case 'header': case 'footer': case 'main': case 'article': case 'aside': case 'nav':
+            return ['block', false, $tag];
+        case 'div': case 'figure': return ['block', false, null];
+        case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6':
+            return ['heading', true, $tag];
+        case 'p': return ['text-basic', true, null];
+        case 'a': return ['text-link', true, null];
+        case 'button': return ['button', true, null];
+        case 'img': return ['image', false, null];
+        case 'ul': case 'ol': return ['block', false, $tag];
+        case 'li': return ['text-basic', true, null];
+        case 'blockquote': return ['text-basic', true, 'blockquote'];
+        default: return ['code', false, null]; // faithful raw-HTML fallback
+    }
+}
+
+/** innerHTML of a DOM element (inline formatting preserved). */
+function webchanges_connector_bricks_inner_html(\DOMElement $el): string
+{
+    $html = '';
+    foreach ($el->childNodes as $c) {
+        $html .= $el->ownerDocument->saveHTML($c);
+    }
+    return trim($html);
+}
+
+/**
+ * Convert an HTML+CSS fragment into a flat Bricks element array. `<style>`
+ * blocks are stripped out and returned separately as page CSS. Element `class`,
+ * `id`, inline `style`, and `data-*` attributes are preserved (so external CSS
+ * that targets those classes still applies, and data-anim animations survive).
+ *
+ * @return array{elements: list<array<string,mixed>>, page_css: string}
+ */
+function webchanges_connector_bricks_html_to_elements(string $html): array
+{
+    if (trim($html) === '') {
+        return ['elements' => [], 'page_css' => ''];
+    }
+    if (!class_exists('DOMDocument')) {
+        return ['elements' => [], 'page_css' => '', 'error' => 'DOMDocument unavailable'];
+    }
+
+    // Pull out <style> blocks → page CSS.
+    $page_css = '';
+    $html = preg_replace_callback('/<style[^>]*>(.*?)<\/style>/is', static function ($m) use (&$page_css) {
+        $page_css .= "\n" . $m[1];
+        return '';
+    }, $html) ?? $html;
+    // Drop <script> for safety.
+    $html = preg_replace('/<script[^>]*>.*?<\/script>/is', '', $html) ?? $html;
+
+    $dom = new \DOMDocument();
+    libxml_use_internal_errors(true);
+    $dom->loadHTML('<?xml encoding="utf-8" ?><div id="wc-import-root">' . $html . '</div>', LIBXML_NOERROR | LIBXML_NOWARNING);
+    libxml_clear_errors();
+    $root = $dom->getElementById('wc-import-root');
+    if (!$root) {
+        return ['elements' => [], 'page_css' => trim($page_css)];
+    }
+
+    $elements = [];
+    $used = [];
+    $gen = static function () use (&$used): string {
+        do {
+            $id = strtolower((string) wp_generate_password(6, false, false));
+        } while (isset($used[$id]));
+        $used[$id] = true;
+        return $id;
+    };
+
+    $walk = static function (\DOMNode $node, string $parent_id) use (&$walk, &$elements, $gen, $dom): void {
+        foreach ($node->childNodes as $child) {
+            if (!($child instanceof \DOMElement)) {
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            [$name, $is_text, $tag_override] = webchanges_connector_bricks_map_tag($tag);
+            $id = $gen();
+            $settings = [];
+
+            if ($child->hasAttribute('class')) {
+                $settings['_cssClasses'] = trim($child->getAttribute('class'));
+            }
+            if ($child->hasAttribute('id')) {
+                $settings['_cssId'] = trim($child->getAttribute('id'));
+            }
+            $style = $child->hasAttribute('style') ? trim($child->getAttribute('style')) : '';
+            if ($style !== '') {
+                $settings['_cssCustom'] = '%root% {' . $style . '}';
+            }
+            $attrs = [];
+            foreach ($child->attributes as $att) {
+                if (strpos($att->name, 'data-') === 0) {
+                    $attrs[] = ['id' => $gen(), 'name' => $att->name, 'value' => $att->value];
+                }
+            }
+            if ($attrs !== []) {
+                $settings['_attributes'] = $attrs;
+            }
+
+            if ($name === 'image') {
+                if ($child->hasAttribute('src')) {
+                    $settings['image'] = ['url' => $child->getAttribute('src'), 'external' => true];
+                }
+                if ($child->hasAttribute('alt')) {
+                    $settings['altText'] = $child->getAttribute('alt');
+                }
+                $elements[] = ['id' => $id, 'name' => 'image', 'parent' => $parent_id, 'children' => [], 'settings' => $settings];
+                continue;
+            }
+
+            if ($name === 'code') {
+                $settings['code'] = $dom->saveHTML($child);
+                $elements[] = ['id' => $id, 'name' => 'code', 'parent' => $parent_id, 'children' => [], 'settings' => $settings];
+                continue;
+            }
+
+            if ($is_text) {
+                $settings['text'] = webchanges_connector_bricks_inner_html($child);
+                if ($tag_override !== null) {
+                    $settings['tag'] = $tag_override;
+                }
+                if (($name === 'text-link' || $name === 'button') && $child->hasAttribute('href')) {
+                    $settings['link'] = ['type' => 'external', 'url' => $child->getAttribute('href')];
+                }
+                $elements[] = ['id' => $id, 'name' => $name, 'parent' => $parent_id, 'children' => [], 'settings' => $settings];
+                continue;
+            }
+
+            // Structural element (section/block): create, then recurse for children.
+            if ($tag_override !== null) {
+                $settings['tag'] = 'custom';
+                $settings['customTag'] = $tag_override;
+            }
+            $elements[] = ['id' => $id, 'name' => $name, 'parent' => $parent_id, 'children' => [], 'settings' => $settings];
+            $idx = count($elements) - 1;
+            $walk($child, $id);
+            $kids = [];
+            foreach ($elements as $e) {
+                if ((string) ($e['parent'] ?? '') === $id) {
+                    $kids[] = (string) $e['id'];
+                }
+            }
+            $elements[$idx]['children'] = $kids;
+        }
+    };
+    $walk($root, '0');
+
+    return ['elements' => $elements, 'page_css' => trim($page_css)];
+}

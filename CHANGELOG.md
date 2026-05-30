@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 - 2026-05-26
+
+- Bricks: bricks-import-html (HTML/CSS -> native Bricks elements, preserving classes/ids/inline-style/data-* attributes, with <style> saved as page Custom CSS).
+- Bricks: bricks-import-json (paste Bricks copied-elements / template JSON onto a page; all ids regenerated; optional globalClasses merge).
+
 ## 0.2.5 - 2026-05-26
 
 - Bundle full GSAP skill set: gsap-core, gsap-scrolltrigger, gsap-timeline, gsap-utils, gsap-plugins, gsap-performance (in addition to gsap-animations). Enabled by default.

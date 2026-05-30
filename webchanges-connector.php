@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Plugin Name: Webchanges Connector
  * Plugin URI: https://webchanges.local
  * Description: Connects a WordPress site to the Webchanges SaaS (or any MCP client) so AI agents can control posts, pages, blocks, media, SEO, permalinks, taxonomies, menus, users, WooCommerce, ACF, and the filesystem.
- * Version: 0.2.5
+ * Version: 0.3.0
  * Requires at least: 6.5
  * Requires PHP: 8.0
  * Author: Webchanges
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit();
 }
 
-define('WEBCHANGES_CONNECTOR_VERSION', '0.2.5');
+define('WEBCHANGES_CONNECTOR_VERSION', '0.3.0');
 define('WEBCHANGES_CONNECTOR_FILE', __FILE__);
 define('WEBCHANGES_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 define('WEBCHANGES_CONNECTOR_URL', plugin_dir_url(__FILE__));
@@ -283,6 +283,8 @@ add_action('wp_abilities_api_init', static function () {
             'bricks/duplicate-element.php',
             'bricks/move-element.php',
             'bricks/list-element-types.php',
+            'bricks/import-html.php',
+            'bricks/import-json.php',
         ] as $rel) {
             require_once $dir . $rel;
         }
