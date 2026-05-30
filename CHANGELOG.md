@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.5 - 2026-05-26
+
+- Bundle full GSAP skill set: gsap-core, gsap-scrolltrigger, gsap-timeline, gsap-utils, gsap-plugins, gsap-performance (in addition to gsap-animations). Enabled by default.
+
 ## 0.2.4 - 2026-05-26
 
 - New Images submenu (dark/glass): AI image generation + stock photo sources at a glance.
