@@ -136,13 +136,52 @@ function webchanges_skills_custom(): array
 }
 
 /**
- * All skills (custom overrides bundled when slugs collide).
+ * Slugs of skills switched off on this site.
+ *
+ * @return list<string>
+ */
+function webchanges_skills_disabled(): array
+{
+    $v = get_option('webchanges_connector_disabled_skills', []);
+    return is_array($v) ? array_values(array_filter(array_map('strval', $v))) : [];
+}
+
+/** Persist the disabled-skills list. */
+function webchanges_skills_set_disabled(array $slugs): void
+{
+    $clean = array_values(array_unique(array_filter(array_map('sanitize_title', $slugs))));
+    update_option('webchanges_connector_disabled_skills', $clean, false);
+}
+
+/** Toggle one skill on/off. Returns the new enabled state. */
+function webchanges_skills_toggle(string $slug, bool $enabled): bool
+{
+    $slug = sanitize_title($slug);
+    $disabled = webchanges_skills_disabled();
+    if ($enabled) {
+        $disabled = array_values(array_diff($disabled, [$slug]));
+    } elseif (!in_array($slug, $disabled, true)) {
+        $disabled[] = $slug;
+    }
+    webchanges_skills_set_disabled($disabled);
+    return $enabled;
+}
+
+/**
+ * All skills (custom overrides bundled when slugs collide). Each record carries
+ * an `enabled` flag reflecting the per-site disabled list.
  *
  * @return array<string, array<string,mixed>>
  */
 function webchanges_skills_all(): array
 {
-    return array_merge(webchanges_skills_bundled(), webchanges_skills_custom());
+    $all = array_merge(webchanges_skills_bundled(), webchanges_skills_custom());
+    $disabled = webchanges_skills_disabled();
+    foreach ($all as $slug => &$s) {
+        $s['enabled'] = !in_array((string) $slug, $disabled, true);
+    }
+    unset($s);
+    return $all;
 }
 
 /**
@@ -160,10 +199,22 @@ function webchanges_skills_index(): array
             'description' => $s['description'],
             'source' => $s['source'],
             'has_macro' => !empty($s['macro']),
+            'enabled' => !empty($s['enabled']),
             'tags' => array_values((array) $s['tags']),
         ];
     }
     return $out;
+}
+
+/**
+ * Index of only the ENABLED skills — what the agent should see (discover /
+ * skills-list).
+ *
+ * @return list<array<string,mixed>>
+ */
+function webchanges_skills_index_enabled(): array
+{
+    return array_values(array_filter(webchanges_skills_index(), static fn($s) => !empty($s['enabled'])));
 }
 
 /**
@@ -306,6 +357,9 @@ function webchanges_skills_run(string $slug, array $inputs = []): array
     if ($skill === null) {
         return ['ok' => false, 'ran' => [], 'outputs' => [], 'error' => sprintf('Skill "%s" not found.', $slug)];
     }
+    if (empty($skill['enabled'])) {
+        return ['ok' => false, 'ran' => [], 'outputs' => [], 'error' => sprintf('Skill "%s" is disabled on this site.', $slug)];
+    }
     if (empty($skill['macro']) || !is_array($skill['macro'])) {
         return ['ok' => false, 'ran' => [], 'outputs' => [], 'error' => sprintf('Skill "%s" has no executable macro.', $slug)];
     }
@@ -402,7 +456,7 @@ add_action('wp_abilities_api_init', static function () {
  * knows what specialist playbooks exist before starting work.
  */
 add_filter('webchanges_connector_discover_instructions', static function ($instructions) {
-    $index = webchanges_skills_index();
+    $index = webchanges_skills_index_enabled();
     if ($index === []) {
         return $instructions;
     }

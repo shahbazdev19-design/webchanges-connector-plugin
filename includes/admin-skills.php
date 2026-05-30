@@ -89,6 +89,12 @@ function webchanges_connector_handle_skills_admin()
         return is_wp_error($res) ? $res : 'deleted';
     }
 
+    if ($action === 'toggle') {
+        $enable = ((string) ($_POST['enable'] ?? '')) === '1';
+        webchanges_skills_toggle((string) ($_POST['slug'] ?? ''), $enable);
+        return $enable ? 'enabled' : 'disabled';
+    }
+
     return null;
 }
 
@@ -99,8 +105,9 @@ function webchanges_connector_render_skills_page(): void
         return;
     }
     $result = webchanges_connector_handle_skills_admin();
-    $bundled = webchanges_skills_bundled();
-    $custom = webchanges_skills_custom();
+    $all = webchanges_skills_all();
+    $bundled = array_filter($all, static fn($s) => ($s['source'] ?? '') === 'bundled');
+    $custom = array_filter($all, static fn($s) => ($s['source'] ?? '') === 'custom');
 
     $edit = isset($_GET['edit']) ? sanitize_title((string) $_GET['edit']) : '';
     $editing = ($edit !== '' && isset($custom[$edit])) ? $custom[$edit] : null;
@@ -119,6 +126,10 @@ function webchanges_connector_render_skills_page(): void
             <div class="wc-notice wc-notice-success"><?php esc_html_e('Skill imported from markdown.', 'webchanges-connector'); ?></div>
         <?php elseif ($result === 'deleted'): ?>
             <div class="wc-notice wc-notice-success"><?php esc_html_e('Custom skill deleted.', 'webchanges-connector'); ?></div>
+        <?php elseif ($result === 'enabled'): ?>
+            <div class="wc-notice wc-notice-success"><?php esc_html_e('Skill enabled.', 'webchanges-connector'); ?></div>
+        <?php elseif ($result === 'disabled'): ?>
+            <div class="wc-notice wc-notice-success"><?php esc_html_e('Skill disabled on this site.', 'webchanges-connector'); ?></div>
         <?php endif; ?>
 
         <div class="wc-notice wc-notice-info">
@@ -131,17 +142,25 @@ function webchanges_connector_render_skills_page(): void
                     <div class="wc-card-title"><?php esc_html_e('Your custom skills', 'webchanges-connector'); ?> <span class="wc-count"><?php echo (int) count($custom); ?></span></div>
                     <?php if ($custom === []): ?>
                         <div class="wc-empty"><?php esc_html_e('No custom skills yet. Add one on the right, or upload a .md file. To ship a skill to every site, add it to the plugin repo under /skills.', 'webchanges-connector'); ?></div>
-                    <?php else: foreach ($custom as $slug => $s): ?>
-                        <div class="wc-row">
+                    <?php else: foreach ($custom as $slug => $s): $on = !empty($s['enabled']); ?>
+                        <div class="wc-row" style="<?php echo $on ? '' : 'opacity:0.5;'; ?>">
                             <div class="wc-row-main">
                                 <div class="wc-row-name">
                                     <?php echo esc_html($s['name']); ?>
                                     <span class="wc-mono"><?php echo esc_html($slug); ?></span>
                                     <?php if (!empty($s['macro'])): ?><span class="wc-chip wc-chip-run"><?php esc_html_e('runnable', 'webchanges-connector'); ?></span><?php endif; ?>
+                                    <?php if (!$on): ?><span class="wc-chip"><?php esc_html_e('disabled', 'webchanges-connector'); ?></span><?php endif; ?>
                                 </div>
                                 <div class="wc-row-desc"><?php echo esc_html($s['description']); ?></div>
                             </div>
                             <div class="wc-row-actions">
+                                <form method="post">
+                                    <?php wp_nonce_field('webchanges_skills'); ?>
+                                    <input type="hidden" name="webchanges_skills_action" value="toggle">
+                                    <input type="hidden" name="slug" value="<?php echo esc_attr($slug); ?>">
+                                    <input type="hidden" name="enable" value="<?php echo $on ? '0' : '1'; ?>">
+                                    <button class="wc-btn wc-btn-sm" type="submit"><?php echo $on ? esc_html__('Disable', 'webchanges-connector') : esc_html__('Enable', 'webchanges-connector'); ?></button>
+                                </form>
                                 <a class="wc-btn wc-btn-sm" href="<?php echo esc_url(add_query_arg('edit', $slug, $base_url)); ?>"><?php esc_html_e('Edit', 'webchanges-connector'); ?></a>
                                 <form method="post" onsubmit="return confirm('<?php echo esc_js(__('Delete this custom skill?', 'webchanges-connector')); ?>');">
                                     <?php wp_nonce_field('webchanges_skills'); ?>
@@ -159,16 +178,26 @@ function webchanges_connector_render_skills_page(): void
                     <div class="wc-card-sub"><?php esc_html_e('Shipped with the plugin and version-controlled. Edit them in the GitHub repo under /skills, then release — they update on every site.', 'webchanges-connector'); ?></div>
                     <?php if ($bundled === []): ?>
                         <div class="wc-empty"><?php esc_html_e('No bundled skills found.', 'webchanges-connector'); ?></div>
-                    <?php else: foreach ($bundled as $slug => $s): ?>
-                        <div class="wc-row">
+                    <?php else: foreach ($bundled as $slug => $s): $on = !empty($s['enabled']); ?>
+                        <div class="wc-row" style="<?php echo $on ? '' : 'opacity:0.5;'; ?>">
                             <div class="wc-row-main">
                                 <div class="wc-row-name">
                                     <?php echo esc_html($s['name']); ?>
                                     <span class="wc-mono"><?php echo esc_html($slug); ?></span>
                                     <span class="wc-chip wc-chip-bundled"><?php esc_html_e('bundled', 'webchanges-connector'); ?></span>
                                     <?php if (!empty($s['macro'])): ?><span class="wc-chip wc-chip-run"><?php esc_html_e('runnable', 'webchanges-connector'); ?></span><?php endif; ?>
+                                    <?php if (!$on): ?><span class="wc-chip"><?php esc_html_e('disabled', 'webchanges-connector'); ?></span><?php endif; ?>
                                 </div>
                                 <div class="wc-row-desc"><?php echo esc_html($s['description']); ?></div>
+                            </div>
+                            <div class="wc-row-actions">
+                                <form method="post">
+                                    <?php wp_nonce_field('webchanges_skills'); ?>
+                                    <input type="hidden" name="webchanges_skills_action" value="toggle">
+                                    <input type="hidden" name="slug" value="<?php echo esc_attr($slug); ?>">
+                                    <input type="hidden" name="enable" value="<?php echo $on ? '0' : '1'; ?>">
+                                    <button class="wc-btn wc-btn-sm" type="submit"><?php echo $on ? esc_html__('Disable', 'webchanges-connector') : esc_html__('Enable', 'webchanges-connector'); ?></button>
+                                </form>
                             </div>
                         </div>
                     <?php endforeach; endif; ?>

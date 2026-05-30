@@ -41,6 +41,9 @@ webchanges_connector_register_ability('skills-get', [
         if ($skill === null) {
             return ['success' => false, 'error' => sprintf('Skill "%s" not found. Call skills-list to see available slugs.', $slug)];
         }
+        if (empty($skill['enabled'])) {
+            return ['success' => false, 'error' => sprintf('Skill "%s" is disabled on this site.', $slug)];
+        }
         return [
             'slug' => $skill['slug'],
             'name' => $skill['name'],

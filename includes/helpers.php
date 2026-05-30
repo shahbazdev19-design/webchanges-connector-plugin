@@ -168,12 +168,72 @@ function webchanges_connector_resolve_path(string $path): ?string
 function webchanges_connector_register_ability(string $short_name, array $spec): void
 {
     $name = WEBCHANGES_CONNECTOR_NAMESPACE . '/' . $short_name;
+
+    // Always record in the full catalog (even when disabled) so the Abilities
+    // Manager can list every ability and offer to re-enable it.
+    if (!isset($GLOBALS['webchanges_connector_ability_catalog']) || !is_array($GLOBALS['webchanges_connector_ability_catalog'])) {
+        $GLOBALS['webchanges_connector_ability_catalog'] = [];
+    }
+    $GLOBALS['webchanges_connector_ability_catalog'][$name] = [
+        'name' => $name,
+        'category' => (string) ($spec['category'] ?? ''),
+        'description' => (string) ($spec['description'] ?? ''),
+    ];
+
+    // The three meta abilities are protected: disabling them would cut off the
+    // agent's ability to discover or run anything, so they always register.
+    $protected = ['discover-abilities', 'get-ability-info', 'execute-ability'];
+    if (!in_array($short_name, $protected, true) && in_array($name, webchanges_connector_disabled_abilities(), true)) {
+        return; // site operator has switched this ability off
+    }
+
     $spec['permission_callback'] = $spec['permission_callback'] ?? 'webchanges_connector_permission_callback';
     $meta = $spec['meta'] ?? [];
     $meta['show_in_rest'] = $meta['show_in_rest'] ?? true;
     $meta['mcp'] = $meta['mcp'] ?? ['public' => true];
     $spec['meta'] = $meta;
     wp_register_ability($name, $spec);
+}
+
+/**
+ * Full names of abilities switched off on this site (Abilities Manager).
+ *
+ * @return list<string>
+ */
+function webchanges_connector_disabled_abilities(): array
+{
+    $v = get_option('webchanges_connector_disabled_abilities', []);
+    return is_array($v) ? array_values(array_filter(array_map('strval', $v))) : [];
+}
+
+/**
+ * Persist the disabled-abilities list. Meta abilities are never stored as
+ * disabled.
+ *
+ * @param list<string> $names
+ */
+function webchanges_connector_set_disabled_abilities(array $names): void
+{
+    $protected = [
+        WEBCHANGES_CONNECTOR_NAMESPACE . '/discover-abilities',
+        WEBCHANGES_CONNECTOR_NAMESPACE . '/get-ability-info',
+        WEBCHANGES_CONNECTOR_NAMESPACE . '/execute-ability',
+    ];
+    $clean = array_values(array_unique(array_filter(array_map('strval', $names))));
+    $clean = array_values(array_diff($clean, $protected));
+    update_option('webchanges_connector_disabled_abilities', $clean, false);
+}
+
+/**
+ * Every ability this build can register (regardless of enabled state), keyed by
+ * full name. Populated as register_ability runs during wp_abilities_api_init.
+ *
+ * @return array<string, array{name:string,category:string,description:string}>
+ */
+function webchanges_connector_ability_catalog(): array
+{
+    $c = $GLOBALS['webchanges_connector_ability_catalog'] ?? [];
+    return is_array($c) ? $c : [];
 }
 
 /**

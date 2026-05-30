@@ -26,7 +26,7 @@ webchanges_connector_register_ability('skills-list', [
         ],
     ],
     'execute_callback' => static function (): array {
-        $index = webchanges_skills_index();
+        $index = webchanges_skills_index_enabled();
         return ['count' => count($index), 'skills' => $index];
     },
     'meta' => [

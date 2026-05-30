@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4 - 2026-05-26
+
+- New Images submenu (dark/glass): AI image generation + stock photo sources at a glance.
+- Abilities Manager: enable/disable abilities per site (all or selected); disabled abilities are not registered, so the agent can't use them. Meta abilities always on.
+- Skills can be enabled/disabled per site (e.g. turn GSAP off on a given site).
+
 ## 0.2.3 - 2026-05-26
 
 - Skills admin page restyled to the dark/glass theme.

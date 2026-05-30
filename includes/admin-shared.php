@@ -187,6 +187,7 @@ function webchanges_connector_admin_header(string $active = ''): string
     $main = admin_url('admin.php?page=' . WEBCHANGES_CONNECTOR_SLUG);
     $skills = admin_url('admin.php?page=webchanges-connector-skills');
     $abilities = admin_url('admin.php?page=webchanges-connector-abilities');
+    $images = admin_url('admin.php?page=webchanges-connector-images');
     ob_start();
     ?>
     <div class="wc-header">
@@ -199,6 +200,7 @@ function webchanges_connector_admin_header(string $active = ''): string
         </div>
         <nav class="wc-nav">
             <a href="<?php echo esc_url($main); ?>"<?php echo $active === 'settings' ? ' class="active"' : ''; ?>><?php esc_html_e('Settings', 'webchanges-connector'); ?></a>
+            <a href="<?php echo esc_url($images); ?>"<?php echo $active === 'images' ? ' class="active"' : ''; ?>><?php esc_html_e('Images', 'webchanges-connector'); ?></a>
             <a href="<?php echo esc_url($abilities); ?>"<?php echo $active === 'abilities' ? ' class="active"' : ''; ?>><?php esc_html_e('Abilities', 'webchanges-connector'); ?></a>
             <a href="<?php echo esc_url($skills); ?>"<?php echo $active === 'skills' ? ' class="active"' : ''; ?>><?php esc_html_e('Skills', 'webchanges-connector'); ?></a>
         </nav>
