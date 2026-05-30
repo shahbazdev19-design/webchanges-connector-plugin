@@ -1,0 +1,8 @@
+[
+  {
+    "id": "install_loader",
+    "action": "write_asset",
+    "asset": "webchanges-gsap.php",
+    "dest": "wp-content/mu-plugins/webchanges-gsap.php"
+  }
+]

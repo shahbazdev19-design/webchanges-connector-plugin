@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 - 2026-05-26
+
+- Add Skills subsystem: git-synced bundled skills + per-site custom skills, with executable macros (skills-list / skills-get / skills-save / skills-delete / skills-run).
+- Bundled skills: gsap-animations (declarative scroll/entrance animations via GSAP + ScrollTrigger), skill-creator.
+- Skills surface in discover-abilities instructions.
+
 ## 0.1.1 - 2026-05-26
 
 - Verify end-to-end self-update pipeline (no functional change).
