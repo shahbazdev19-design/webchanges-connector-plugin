@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 - 2026-05-26
+
+- Add Webchanges -> Skills admin page: list bundled + custom skills, add a custom skill, upload a .md skill, delete custom skills.
+
 ## 0.2.1 - 2026-05-26
 
 - Fix release build excluding skill .md instruction files (only root README/CHANGELOG are dropped now).
