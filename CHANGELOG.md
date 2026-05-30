@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 - 2026-05-26
+
+- Verify end-to-end self-update pipeline (no functional change).
+
 ## 0.1.0 - 2026-05-26
 
 - Initial tracked release.
