@@ -7,10 +7,9 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Admin UI for the Skills subsystem: a "Skills" submenu under the Webchanges
- * top-level menu. Lists bundled (repo) and custom (per-site) skills, and lets
- * an admin add a custom skill or upload a markdown skill file. Self-contained:
- * required by skills-helpers.php so the whole Skills module ships as one unit.
+ * Admin UI for the Skills subsystem: a dark/glass "Skills" submenu under the
+ * Webchanges menu. Lists bundled + custom skills and lets an admin add, upload,
+ * edit, or delete custom skills.
  */
 
 add_action('admin_menu', static function () {
@@ -103,126 +102,120 @@ function webchanges_connector_render_skills_page(): void
     $bundled = webchanges_skills_bundled();
     $custom = webchanges_skills_custom();
 
-    // Prefill the form when editing a custom skill.
     $edit = isset($_GET['edit']) ? sanitize_title((string) $_GET['edit']) : '';
     $editing = ($edit !== '' && isset($custom[$edit])) ? $custom[$edit] : null;
-
     $base_url = admin_url('admin.php?page=webchanges-connector-skills');
+
+    echo webchanges_connector_admin_theme_css(); // phpcs:ignore WordPress.Security.EscapeOutput
     ?>
-    <div class="wrap">
-        <h1 style="display:flex;align-items:center;gap:10px;">
-            <?php esc_html_e('Webchanges Skills', 'webchanges-connector'); ?>
-            <span style="font-size:12px;background:#16a34a;color:#fff;padding:2px 8px;border-radius:10px;font-weight:600;"><?php echo (int) (count($bundled) + count($custom)); ?></span>
-        </h1>
-        <p class="description" style="max-width:760px;">
-            <?php esc_html_e('Skills are reusable specialist playbooks the agent loads on demand. Bundled skills ship with the plugin and update automatically across every site. Custom skills live only on this site. After adding or uploading a skill, reconnect your AI client so it sees the new state.', 'webchanges-connector'); ?>
-        </p>
+    <div class="wc-shell">
+        <?php echo webchanges_connector_admin_header('skills'); // phpcs:ignore WordPress.Security.EscapeOutput ?>
 
         <?php if (is_wp_error($result)): ?>
-            <div class="notice notice-error is-dismissible"><p><?php echo esc_html($result->get_error_message()); ?></p></div>
+            <div class="wc-notice wc-notice-error"><?php echo esc_html($result->get_error_message()); ?></div>
         <?php elseif ($result === 'saved'): ?>
-            <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Skill saved.', 'webchanges-connector'); ?></p></div>
+            <div class="wc-notice wc-notice-success"><?php esc_html_e('Skill saved.', 'webchanges-connector'); ?></div>
         <?php elseif ($result === 'imported'): ?>
-            <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Skill imported from markdown.', 'webchanges-connector'); ?></p></div>
+            <div class="wc-notice wc-notice-success"><?php esc_html_e('Skill imported from markdown.', 'webchanges-connector'); ?></div>
         <?php elseif ($result === 'deleted'): ?>
-            <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Custom skill deleted.', 'webchanges-connector'); ?></p></div>
+            <div class="wc-notice wc-notice-success"><?php esc_html_e('Custom skill deleted.', 'webchanges-connector'); ?></div>
         <?php endif; ?>
 
-        <div style="display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start;margin-top:16px;">
-            <div>
-                <h2><?php printf(esc_html__('Your custom skills (%d)', 'webchanges-connector'), count($custom)); ?></h2>
-                <?php if ($custom === []): ?>
-                    <p class="description"><?php esc_html_e('No custom skills yet. Add one on the right, or upload a .md file. To ship a skill to every site, add it to the plugin repo under /skills instead.', 'webchanges-connector'); ?></p>
-                <?php else: ?>
-                    <table class="widefat striped">
-                        <thead><tr><th><?php esc_html_e('Skill', 'webchanges-connector'); ?></th><th><?php esc_html_e('Runnable', 'webchanges-connector'); ?></th><th></th></tr></thead>
-                        <tbody>
-                        <?php foreach ($custom as $slug => $s): ?>
-                            <tr>
-                                <td>
-                                    <strong><?php echo esc_html($s['name']); ?></strong>
-                                    <code style="font-size:11px;"><?php echo esc_html($slug); ?></code><br>
-                                    <span class="description"><?php echo esc_html($s['description']); ?></span>
-                                </td>
-                                <td><?php echo !empty($s['macro']) ? '✅' : '—'; ?></td>
-                                <td style="white-space:nowrap;text-align:right;">
-                                    <a class="button button-small" href="<?php echo esc_url(add_query_arg('edit', $slug, $base_url)); ?>"><?php esc_html_e('Edit', 'webchanges-connector'); ?></a>
-                                    <form method="post" style="display:inline;" onsubmit="return confirm('<?php echo esc_js(__('Delete this custom skill?', 'webchanges-connector')); ?>');">
-                                        <?php wp_nonce_field('webchanges_skills'); ?>
-                                        <input type="hidden" name="webchanges_skills_action" value="delete">
-                                        <input type="hidden" name="slug" value="<?php echo esc_attr($slug); ?>">
-                                        <button class="button button-small button-link-delete" type="submit"><?php esc_html_e('Delete', 'webchanges-connector'); ?></button>
-                                    </form>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
+        <div class="wc-notice wc-notice-info">
+            <?php esc_html_e('Skills are reusable specialist playbooks the agent loads on demand. Bundled skills ship with the plugin and update across every site; custom skills live only here. After changes, reconnect your AI client so it sees the new state.', 'webchanges-connector'); ?>
+        </div>
 
-                <h2 style="margin-top:28px;"><?php printf(esc_html__('Bundled skills (%d)', 'webchanges-connector'), count($bundled)); ?></h2>
-                <p class="description"><?php esc_html_e('Shipped with the plugin and version-controlled. Edit these in the GitHub repo under /skills, then release — they update on every site.', 'webchanges-connector'); ?></p>
-                <table class="widefat striped">
-                    <thead><tr><th><?php esc_html_e('Skill', 'webchanges-connector'); ?></th><th><?php esc_html_e('Runnable', 'webchanges-connector'); ?></th></tr></thead>
-                    <tbody>
-                    <?php if ($bundled === []): ?>
-                        <tr><td colspan="2" class="description"><?php esc_html_e('No bundled skills found.', 'webchanges-connector'); ?></td></tr>
-                    <?php else: foreach ($bundled as $slug => $s): ?>
-                        <tr>
-                            <td>
-                                <strong><?php echo esc_html($s['name']); ?></strong>
-                                <code style="font-size:11px;"><?php echo esc_html($slug); ?></code>
-                                <?php if (!empty($s['version'])): ?><span class="description">v<?php echo esc_html($s['version']); ?></span><?php endif; ?><br>
-                                <span class="description"><?php echo esc_html($s['description']); ?></span>
-                            </td>
-                            <td><?php echo !empty($s['macro']) ? '✅' : '—'; ?></td>
-                        </tr>
+        <div class="wc-grid wc-grid-2">
+            <div>
+                <div class="wc-card">
+                    <div class="wc-card-title"><?php esc_html_e('Your custom skills', 'webchanges-connector'); ?> <span class="wc-count"><?php echo (int) count($custom); ?></span></div>
+                    <?php if ($custom === []): ?>
+                        <div class="wc-empty"><?php esc_html_e('No custom skills yet. Add one on the right, or upload a .md file. To ship a skill to every site, add it to the plugin repo under /skills.', 'webchanges-connector'); ?></div>
+                    <?php else: foreach ($custom as $slug => $s): ?>
+                        <div class="wc-row">
+                            <div class="wc-row-main">
+                                <div class="wc-row-name">
+                                    <?php echo esc_html($s['name']); ?>
+                                    <span class="wc-mono"><?php echo esc_html($slug); ?></span>
+                                    <?php if (!empty($s['macro'])): ?><span class="wc-chip wc-chip-run"><?php esc_html_e('runnable', 'webchanges-connector'); ?></span><?php endif; ?>
+                                </div>
+                                <div class="wc-row-desc"><?php echo esc_html($s['description']); ?></div>
+                            </div>
+                            <div class="wc-row-actions">
+                                <a class="wc-btn wc-btn-sm" href="<?php echo esc_url(add_query_arg('edit', $slug, $base_url)); ?>"><?php esc_html_e('Edit', 'webchanges-connector'); ?></a>
+                                <form method="post" onsubmit="return confirm('<?php echo esc_js(__('Delete this custom skill?', 'webchanges-connector')); ?>');">
+                                    <?php wp_nonce_field('webchanges_skills'); ?>
+                                    <input type="hidden" name="webchanges_skills_action" value="delete">
+                                    <input type="hidden" name="slug" value="<?php echo esc_attr($slug); ?>">
+                                    <button class="wc-btn wc-btn-sm wc-btn-danger" type="submit"><?php esc_html_e('Delete', 'webchanges-connector'); ?></button>
+                                </form>
+                            </div>
+                        </div>
                     <?php endforeach; endif; ?>
-                    </tbody>
-                </table>
+                </div>
+
+                <div class="wc-card">
+                    <div class="wc-card-title"><?php esc_html_e('Bundled skills', 'webchanges-connector'); ?> <span class="wc-count"><?php echo (int) count($bundled); ?></span></div>
+                    <div class="wc-card-sub"><?php esc_html_e('Shipped with the plugin and version-controlled. Edit them in the GitHub repo under /skills, then release — they update on every site.', 'webchanges-connector'); ?></div>
+                    <?php if ($bundled === []): ?>
+                        <div class="wc-empty"><?php esc_html_e('No bundled skills found.', 'webchanges-connector'); ?></div>
+                    <?php else: foreach ($bundled as $slug => $s): ?>
+                        <div class="wc-row">
+                            <div class="wc-row-main">
+                                <div class="wc-row-name">
+                                    <?php echo esc_html($s['name']); ?>
+                                    <span class="wc-mono"><?php echo esc_html($slug); ?></span>
+                                    <span class="wc-chip wc-chip-bundled"><?php esc_html_e('bundled', 'webchanges-connector'); ?></span>
+                                    <?php if (!empty($s['macro'])): ?><span class="wc-chip wc-chip-run"><?php esc_html_e('runnable', 'webchanges-connector'); ?></span><?php endif; ?>
+                                </div>
+                                <div class="wc-row-desc"><?php echo esc_html($s['description']); ?></div>
+                            </div>
+                        </div>
+                    <?php endforeach; endif; ?>
+                </div>
             </div>
 
             <div>
-                <div class="postbox" style="padding:16px;">
-                    <h2 class="hndle" style="padding:0 0 8px;"><?php echo $editing ? esc_html__('Edit custom skill', 'webchanges-connector') : esc_html__('Add a custom skill', 'webchanges-connector'); ?></h2>
+                <div class="wc-card">
+                    <div class="wc-card-title"><?php echo $editing ? esc_html__('Edit custom skill', 'webchanges-connector') : esc_html__('Add a custom skill', 'webchanges-connector'); ?></div>
                     <form method="post">
                         <?php wp_nonce_field('webchanges_skills'); ?>
                         <input type="hidden" name="webchanges_skills_action" value="save">
-                        <p>
-                            <label><strong><?php esc_html_e('Name', 'webchanges-connector'); ?></strong></label>
-                            <input class="widefat" type="text" name="name" required value="<?php echo esc_attr($editing['name'] ?? ''); ?>">
-                        </p>
-                        <p>
-                            <label><strong><?php esc_html_e('Slug', 'webchanges-connector'); ?></strong> <span class="description">(kebab-case)</span></label>
-                            <input class="widefat" type="text" name="slug" value="<?php echo esc_attr($editing['slug'] ?? ''); ?>" <?php echo $editing ? 'readonly' : ''; ?> placeholder="my-skill">
-                        </p>
-                        <p>
-                            <label><strong><?php esc_html_e('Description', 'webchanges-connector'); ?></strong></label>
-                            <input class="widefat" type="text" name="description" value="<?php echo esc_attr($editing['description'] ?? ''); ?>" placeholder="<?php esc_attr_e('One action-first sentence the agent uses to decide when to load it.', 'webchanges-connector'); ?>">
-                        </p>
-                        <p>
-                            <label><strong><?php esc_html_e('Instructions (markdown)', 'webchanges-connector'); ?></strong></label>
-                            <textarea class="widefat code" name="body" rows="10" placeholder="# My Skill&#10;&#10;Step-by-step instructions..."><?php echo esc_textarea($editing['body'] ?? ''); ?></textarea>
-                        </p>
-                        <details<?php echo (!empty($editing['macro'])) ? ' open' : ''; ?>>
-                            <summary style="cursor:pointer;font-weight:600;margin-bottom:6px;"><?php esc_html_e('Advanced: runnable macro (JSON, optional)', 'webchanges-connector'); ?></summary>
-                            <textarea class="widefat code" name="macro" rows="6" placeholder='[ { "id": "step1", "ability": "webchanges/create-post", "params": { "title": "{{input.title}}" } } ]'><?php echo esc_textarea(!empty($editing['macro']) ? (string) wp_json_encode($editing['macro'], JSON_PRETTY_PRINT) : ''); ?></textarea>
+                        <div class="wc-field">
+                            <label class="wc-label"><?php esc_html_e('Name', 'webchanges-connector'); ?></label>
+                            <input class="wc-input" type="text" name="name" required value="<?php echo esc_attr($editing['name'] ?? ''); ?>">
+                        </div>
+                        <div class="wc-field">
+                            <label class="wc-label"><?php esc_html_e('Slug (kebab-case)', 'webchanges-connector'); ?></label>
+                            <input class="wc-input" type="text" name="slug" value="<?php echo esc_attr($editing['slug'] ?? ''); ?>" <?php echo $editing ? 'readonly' : ''; ?> placeholder="my-skill">
+                        </div>
+                        <div class="wc-field">
+                            <label class="wc-label"><?php esc_html_e('Description', 'webchanges-connector'); ?></label>
+                            <input class="wc-input" type="text" name="description" value="<?php echo esc_attr($editing['description'] ?? ''); ?>" placeholder="<?php esc_attr_e('One action-first sentence the agent uses to decide when to load it.', 'webchanges-connector'); ?>">
+                        </div>
+                        <div class="wc-field">
+                            <label class="wc-label"><?php esc_html_e('Instructions (markdown)', 'webchanges-connector'); ?></label>
+                            <textarea class="wc-input" name="body" rows="9" placeholder="# My Skill&#10;&#10;Step-by-step instructions..."><?php echo esc_textarea($editing['body'] ?? ''); ?></textarea>
+                        </div>
+                        <details class="wc-adv"<?php echo (!empty($editing['macro'])) ? ' open' : ''; ?>>
+                            <summary><?php esc_html_e('Advanced: runnable macro (JSON, optional)', 'webchanges-connector'); ?></summary>
+                            <textarea class="wc-input" name="macro" rows="6" placeholder='[ { "id": "step1", "ability": "webchanges/create-post", "params": { "title": "{{input.title}}" } } ]'><?php echo esc_textarea(!empty($editing['macro']) ? (string) wp_json_encode($editing['macro'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : ''); ?></textarea>
                         </details>
-                        <p style="margin-top:12px;">
-                            <button class="button button-primary" type="submit"><?php echo $editing ? esc_html__('Update skill', 'webchanges-connector') : esc_html__('Add skill', 'webchanges-connector'); ?></button>
-                            <?php if ($editing): ?><a class="button" href="<?php echo esc_url($base_url); ?>"><?php esc_html_e('Cancel', 'webchanges-connector'); ?></a><?php endif; ?>
-                        </p>
+                        <div style="margin-top:14px;display:flex;gap:8px;">
+                            <button class="wc-btn wc-btn-primary" type="submit"><?php echo $editing ? esc_html__('Update skill', 'webchanges-connector') : esc_html__('Add skill', 'webchanges-connector'); ?></button>
+                            <?php if ($editing): ?><a class="wc-btn" href="<?php echo esc_url($base_url); ?>"><?php esc_html_e('Cancel', 'webchanges-connector'); ?></a><?php endif; ?>
+                        </div>
                     </form>
                 </div>
 
-                <div class="postbox" style="padding:16px;margin-top:16px;">
-                    <h2 class="hndle" style="padding:0 0 8px;"><?php esc_html_e('Upload a .md skill', 'webchanges-connector'); ?></h2>
-                    <p class="description"><?php esc_html_e('Upload a markdown file with frontmatter (name, description). Only upload skills from sources you trust.', 'webchanges-connector'); ?></p>
+                <div class="wc-card">
+                    <div class="wc-card-title"><?php esc_html_e('Upload a .md skill', 'webchanges-connector'); ?></div>
+                    <div class="wc-card-sub"><?php esc_html_e('Markdown file with frontmatter (name, description). Only upload skills from sources you trust.', 'webchanges-connector'); ?></div>
                     <form method="post" enctype="multipart/form-data">
                         <?php wp_nonce_field('webchanges_skills'); ?>
                         <input type="hidden" name="webchanges_skills_action" value="upload">
-                        <p><input type="file" name="md" accept=".md,.markdown,text/markdown,text/plain" required></p>
-                        <p><button class="button" type="submit"><?php esc_html_e('Upload .md', 'webchanges-connector'); ?></button></p>
+                        <div class="wc-field"><input class="wc-input" type="file" name="md" accept=".md,.markdown,text/markdown,text/plain" required></div>
+                        <button class="wc-btn" type="submit"><?php esc_html_e('Upload .md', 'webchanges-connector'); ?></button>
                     </form>
                 </div>
             </div>

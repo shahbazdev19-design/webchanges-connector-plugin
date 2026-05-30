@@ -397,14 +397,6 @@ add_action('wp_abilities_api_init', static function () {
     }
 });
 
-// Admin UI: the Webchanges -> Skills submenu page.
-if (is_admin()) {
-    $webchanges_skills_admin = WEBCHANGES_CONNECTOR_DIR . 'includes/admin-skills.php';
-    if (is_file($webchanges_skills_admin)) {
-        require_once $webchanges_skills_admin;
-    }
-}
-
 /**
  * Surface available skills in the discover-abilities instructions so the agent
  * knows what specialist playbooks exist before starting work.

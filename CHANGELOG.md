@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3 - 2026-05-26
+
+- Skills admin page restyled to the dark/glass theme.
+- New Abilities browser submenu (dark/glass) with category grouping + live filter.
+- Shared admin theme + in-page nav (Settings / Abilities / Skills).
+
 ## 0.2.2 - 2026-05-26
 
 - Add Webchanges -> Skills admin page: list bundled + custom skills, add a custom skill, upload a .md skill, delete custom skills.
