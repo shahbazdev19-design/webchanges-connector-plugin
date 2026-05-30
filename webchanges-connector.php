@@ -33,7 +33,7 @@ define('WEBCHANGES_CONNECTOR_MAX_EXECUTION_TIME', 30);
 // native "Update available" button on the Plugins screen. Private repos also
 // need a read-only token — see includes/updater.php.
 if (!defined('WEBCHANGES_CONNECTOR_UPDATE_REPO')) {
-    define('WEBCHANGES_CONNECTOR_UPDATE_REPO', 'https://github.com/OWNER/webchanges-connector/');
+    define('WEBCHANGES_CONNECTOR_UPDATE_REPO', 'https://github.com/shahbazdev19-design/webchanges-connector-plugin/');
 }
 
 // Defer to any plugin that has already started loading the MCP Adapter
