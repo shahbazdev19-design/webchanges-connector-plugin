@@ -43,7 +43,8 @@ jobs:
             --exclude '.gitignore' \
             --exclude 'bin' \
             --exclude 'build' \
-            --exclude '*.md' \
+            --exclude '/README.md' \
+            --exclude '/CHANGELOG.md' \
             ./ build/webchanges-connector/
           cd build
           zip -rq webchanges-connector.zip webchanges-connector

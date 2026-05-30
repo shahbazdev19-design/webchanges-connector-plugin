@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 - 2026-05-26
+
+- Fix release build excluding skill .md instruction files (only root README/CHANGELOG are dropped now).
+
 ## 0.2.0 - 2026-05-26
 
 - Add Skills subsystem: git-synced bundled skills + per-site custom skills, with executable macros (skills-list / skills-get / skills-save / skills-delete / skills-run).
