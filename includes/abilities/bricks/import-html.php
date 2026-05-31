@@ -69,15 +69,21 @@ webchanges_connector_register_ability('bricks-import-html', [
         $total = webchanges_connector_bricks_write($post_id, $area, $combined);
 
         $css_bytes = 0;
-        if ($set_page_css && !empty($converted['page_css'])) {
+        if ($set_page_css) {
             $ps = get_post_meta($post_id, '_bricks_page_settings', true);
             if (!is_array($ps)) {
                 $ps = [];
             }
-            $existing_css = (string) ($ps['customCss'] ?? '');
-            $ps['customCss'] = trim($existing_css . "\n\n/* imported via webchanges */\n" . $converted['page_css']);
+            $new_css = (string) ($converted['page_css'] ?? '');
+            if ($mode === 'append') {
+                $existing_css = (string) ($ps['customCss'] ?? '');
+                $ps['customCss'] = trim($existing_css . "\n\n/* imported via webchanges */\n" . $new_css);
+            } else {
+                // replace mode → replace the page CSS too (no accumulation).
+                $ps['customCss'] = $new_css;
+            }
             update_post_meta($post_id, '_bricks_page_settings', $ps);
-            $css_bytes = strlen((string) $converted['page_css']);
+            $css_bytes = strlen($new_css);
         }
 
         $root_ids = [];

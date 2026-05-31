@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2 - 2026-05-26
+
+- Fix bricks-import-html: inline tags (span/b/i/strong/em/...) and unknown tags now render via basic-text instead of the Bricks code element (which escaped them to literal text). Replace-mode now replaces page Custom CSS instead of appending.
+
 ## 0.3.1 - 2026-05-26
 
 - bricks-import-html: inline <svg> now imports as a data-URI image (renders without Bricks code execution).

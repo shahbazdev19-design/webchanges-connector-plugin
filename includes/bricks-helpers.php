@@ -370,13 +370,22 @@ function webchanges_connector_bricks_map_tag(string $tag): array
         case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6':
             return ['heading', true, $tag];
         case 'p': return ['text-basic', true, null];
+        // Inline formatting tags render as a basic-text element (which keeps
+        // their inner HTML + preserves the class for styling). Never the
+        // Bricks `code` element — that escapes its contents when code
+        // execution is off, showing raw tags as literal text.
+        case 'span': case 'b': case 'strong': case 'i': case 'em': case 'u':
+        case 'small': case 'mark': case 'sub': case 'sup': case 'label':
+        case 'abbr': case 'cite': case 'q': case 'code':
+            return ['text-basic', true, null];
         case 'a': return ['text-link', true, null];
         case 'button': return ['button', true, null];
         case 'img': return ['image', false, null];
         case 'ul': case 'ol': return ['block', false, $tag];
         case 'li': return ['text-basic', true, null];
         case 'blockquote': return ['text-basic', true, 'blockquote'];
-        default: return ['code', false, null]; // faithful raw-HTML fallback
+        // Unknown tag → render its HTML via basic-text rather than escaping it.
+        default: return ['text-basic', true, null];
     }
 }
 
