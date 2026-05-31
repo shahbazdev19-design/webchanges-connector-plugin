@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 - 2026-05-31
+
+- Native-elements-first Bricks import (native layout controls + Icon elements) + bricks-update-global-css and css_target
+
 ## 0.3.2 - 2026-05-26
 
 - Fix bricks-import-html: inline tags (span/b/i/strong/em/...) and unknown tags now render via basic-text instead of the Bricks code element (which escaped them to literal text). Replace-mode now replaces page Custom CSS instead of appending.
