@@ -400,10 +400,174 @@ function webchanges_connector_bricks_inner_html(\DOMElement $el): string
 }
 
 /**
+ * Parse a CSS string into a map of simple class selectors → declarations.
+ * Only single-class selectors (`.foo`) are indexed; complex selectors, ids,
+ * and at-rule (@media/@import) blocks are skipped. Comments are stripped.
+ * Used by the importer to translate layout CSS into native Bricks controls.
+ *
+ * @return array<string, array<string,string>>  e.g. ['.wc-cards' => ['display'=>'flex', ...]]
+ */
+function webchanges_connector_bricks_parse_css_rules(string $css): array
+{
+    $map = [];
+    $css = preg_replace('!/\*.*?\*/!s', '', $css) ?? $css;
+    foreach (explode('}', $css) as $chunk) {
+        $pos = strpos($chunk, '{');
+        if ($pos === false) {
+            continue;
+        }
+        $sel = trim(substr($chunk, 0, $pos));
+        $body = substr($chunk, $pos + 1);
+        if ($sel === '' || strpos($sel, '@') !== false) {
+            continue;
+        }
+        $decls = [];
+        foreach (explode(';', $body) as $d) {
+            if (strpos($d, ':') === false) {
+                continue;
+            }
+            [$p, $v] = explode(':', $d, 2);
+            $decls[strtolower(trim($p))] = trim($v);
+        }
+        if ($decls === []) {
+            continue;
+        }
+        foreach (explode(',', $sel) as $s) {
+            $s = trim($s);
+            if (preg_match('/^\.([a-zA-Z0-9_-]+)$/', $s, $m)) {
+                $key = '.' . $m[1];
+                $map[$key] = array_merge($map[$key] ?? [], $decls);
+            }
+        }
+    }
+    return $map;
+}
+
+/**
+ * Translate a set of CSS declarations into native Bricks layout controls.
+ *
+ * This is the core "native elements first" fix: Bricks renders every
+ * block/div/section with a built-in `display:flex; flex-direction:column`,
+ * so plain `display:flex` CSS (which defaults to row in a browser) collapses
+ * into a vertical stack. By emitting the native `_direction` control —
+ * defaulting to `row` whenever the source declares `display:flex` without an
+ * explicit column direction — the layout is driven by Bricks controls (which
+ * win over the default) instead of overrideable CSS.
+ *
+ * @param array<string,string> $d  Merged CSS declarations (prop => value).
+ * @return array<string,mixed>     Native Bricks control settings to merge in.
+ */
+function webchanges_connector_bricks_flex_controls(array $d): array
+{
+    $out = [];
+    $norm = static function (string $v): string {
+        $v = trim($v);
+        return preg_match('/^\d+px$/', $v) ? (string) (int) $v : $v;
+    };
+    $disp = strtolower($d['display'] ?? '');
+
+    if ($disp === 'flex' || $disp === 'inline-flex') {
+        $out['_display'] = $disp;
+        $dir = strtolower($d['flex-direction'] ?? 'row');
+        // The fix: default to row so Bricks' column default is overridden.
+        $out['_direction'] = ($dir !== '') ? $dir : 'row';
+        if (isset($d['justify-content'])) {
+            $out['_justifyContent'] = $d['justify-content'];
+        }
+        if (isset($d['align-items'])) {
+            $out['_alignItems'] = $d['align-items'];
+        }
+        if (isset($d['flex-wrap'])) {
+            $out['_flexWrap'] = $d['flex-wrap'];
+        }
+    } elseif ($disp === 'grid') {
+        $out['_display'] = 'grid';
+        if (isset($d['grid-template-columns'])) {
+            $out['_gridTemplateColumns'] = $d['grid-template-columns'];
+        }
+        if (isset($d['justify-content'])) {
+            $out['_justifyContent'] = $d['justify-content'];
+        }
+        if (isset($d['align-items'])) {
+            $out['_alignItems'] = $d['align-items'];
+        }
+    } else {
+        return $out;
+    }
+
+    // Gaps (shared by flex + grid). `gap: <row> <col>` shorthand supported.
+    if (isset($d['gap'])) {
+        $parts = preg_split('/\s+/', trim($d['gap'])) ?: [];
+        $row = $parts[0] ?? '';
+        $col = $parts[1] ?? $row;
+        if ($row !== '') {
+            $out['_rowGap'] = $norm($row);
+        }
+        if ($col !== '') {
+            $out['_columnGap'] = $norm($col);
+        }
+    }
+    if (isset($d['row-gap'])) {
+        $out['_rowGap'] = $norm($d['row-gap']);
+    }
+    if (isset($d['column-gap'])) {
+        $out['_columnGap'] = $norm($d['column-gap']);
+    }
+    return $out;
+}
+
+/**
+ * Detect an icon-font class string and map it to a native Bricks Icon value.
+ * Recognises Ionicons (`ion-*`), Themify (`ti-*`), and Font Awesome
+ * (`fa`/`fas`/`far`/`fab` + `fa-*`). Returns null when no icon class is found.
+ *
+ * @return array{library:string, icon:string}|null
+ */
+function webchanges_connector_bricks_detect_icon(string $class): ?array
+{
+    $classes = array_filter(preg_split('/\s+/', trim($class)) ?: []);
+    if ($classes === []) {
+        return null;
+    }
+    foreach ($classes as $c) {
+        if (strpos($c, 'ion-') === 0) {
+            return ['library' => 'ionicons', 'icon' => $c];
+        }
+        if (strpos($c, 'ti-') === 0) {
+            return ['library' => 'themify', 'icon' => $c];
+        }
+    }
+    // Font Awesome: a weight class (fas/far/fab) plus an fa-* glyph class.
+    $library = null;
+    $name = null;
+    foreach ($classes as $c) {
+        if (in_array($c, ['fa', 'fas', 'fa-solid'], true)) {
+            $library = 'fontawesomeSolid';
+        } elseif (in_array($c, ['far', 'fa-regular'], true)) {
+            $library = 'fontawesomeRegular';
+        } elseif (in_array($c, ['fab', 'fa-brands'], true)) {
+            $library = 'fontawesomeBrands';
+        } elseif (strpos($c, 'fa-') === 0) {
+            $name = $c;
+        }
+    }
+    if ($name !== null) {
+        return ['library' => $library ?? 'fontawesomeSolid', 'icon' => $name];
+    }
+    return null;
+}
+
+/**
  * Convert an HTML+CSS fragment into a flat Bricks element array. `<style>`
  * blocks are stripped out and returned separately as page CSS. Element `class`,
  * `id`, inline `style`, and `data-*` attributes are preserved (so external CSS
  * that targets those classes still applies, and data-anim animations survive).
+ *
+ * Native-elements-first: when an element's class/inline CSS declares
+ * `display:flex|grid`, the layout is also emitted as native Bricks controls
+ * (`_direction` defaulting to `row`, `_justifyContent`, `_alignItems`,
+ * `_flexWrap`, gaps) so it survives Bricks' block defaults. Icon-font `<i>`/
+ * `<span>` elements become native Bricks Icon elements.
  *
  * @return array{elements: list<array<string,mixed>>, page_css: string}
  */
@@ -425,6 +589,10 @@ function webchanges_connector_bricks_html_to_elements(string $html): array
     // Drop <script> for safety.
     $html = preg_replace('/<script[^>]*>.*?<\/script>/is', '', $html) ?? $html;
 
+    // Index the extracted CSS by class so layout rules can be re-expressed as
+    // native Bricks controls (the "native elements first" contract).
+    $css_map = webchanges_connector_bricks_parse_css_rules($page_css);
+
     $dom = new \DOMDocument();
     libxml_use_internal_errors(true);
     $dom->loadHTML('<?xml encoding="utf-8" ?><div id="wc-import-root">' . $html . '</div>', LIBXML_NOERROR | LIBXML_NOWARNING);
@@ -444,7 +612,7 @@ function webchanges_connector_bricks_html_to_elements(string $html): array
         return $id;
     };
 
-    $walk = static function (\DOMNode $node, string $parent_id) use (&$walk, &$elements, $gen, $dom): void {
+    $walk = static function (\DOMNode $node, string $parent_id) use (&$walk, &$elements, $gen, $dom, $css_map): void {
         foreach ($node->childNodes as $child) {
             if (!($child instanceof \DOMElement)) {
                 continue;
@@ -472,6 +640,41 @@ function webchanges_connector_bricks_html_to_elements(string $html): array
             }
             if ($attrs !== []) {
                 $settings['_attributes'] = $attrs;
+            }
+
+            // Native-elements-first layout: gather the element's effective CSS
+            // declarations (matched classes first, inline style overrides) and,
+            // when it's a flex/grid container, emit native Bricks layout controls
+            // (notably `_direction:row`) so the layout is not left to CSS that
+            // Bricks' block defaults would override.
+            $class_attr = $child->hasAttribute('class') ? $child->getAttribute('class') : '';
+            $decls = [];
+            foreach (preg_split('/\s+/', trim($class_attr)) ?: [] as $cn) {
+                if ($cn !== '' && isset($css_map['.' . $cn])) {
+                    $decls = array_merge($decls, $css_map['.' . $cn]);
+                }
+            }
+            if ($style !== '') {
+                foreach (explode(';', $style) as $d) {
+                    if (strpos($d, ':') !== false) {
+                        [$p, $v] = explode(':', $d, 2);
+                        $decls[strtolower(trim($p))] = trim($v);
+                    }
+                }
+            }
+            foreach (webchanges_connector_bricks_flex_controls($decls) as $ck => $cv) {
+                $settings[$ck] = $cv;
+            }
+
+            // Icon-font <i>/<span> → native Bricks Icon element (renders a real
+            // glyph instead of an empty styled box).
+            if ($tag === 'i' || $tag === 'span') {
+                $icon = webchanges_connector_bricks_detect_icon($class_attr);
+                if ($icon !== null) {
+                    $settings['icon'] = $icon;
+                    $elements[] = ['id' => $id, 'name' => 'icon', 'parent' => $parent_id, 'children' => [], 'settings' => $settings];
+                    continue;
+                }
             }
 
             // Inline <svg> → a data-URI image, so it renders without Bricks
@@ -532,4 +735,90 @@ function webchanges_connector_bricks_html_to_elements(string $html): array
     $walk($root, '0');
 
     return ['elements' => $elements, 'page_css' => trim($page_css)];
+}
+
+/**
+ * Resolve the id of the "global" Bricks theme style — the one whose conditions
+ * include `main:'any'` (applies site-wide). Falls back to the first theme style,
+ * or null when none exist.
+ */
+function webchanges_connector_bricks_global_style_id(): ?string
+{
+    $ts = get_option('bricks_theme_styles');
+    if (!is_array($ts) || $ts === []) {
+        return null;
+    }
+    foreach ($ts as $id => $st) {
+        $conds = $st['settings']['conditions']['conditions'] ?? [];
+        if (is_array($conds)) {
+            foreach ($conds as $c) {
+                if (($c['main'] ?? '') === 'any') {
+                    return (string) $id;
+                }
+            }
+        }
+    }
+    $keys = array_keys($ts);
+    return (string) ($keys[0] ?? null);
+}
+
+/**
+ * Read the global (cross-page) custom CSS stored in the global theme-style
+ * stylesheet. Returns ['style_id' => ?string, 'css' => string].
+ *
+ * @return array{style_id: ?string, css: string}
+ */
+function webchanges_connector_bricks_get_global_css(?string $style_id = null): array
+{
+    $ts = get_option('bricks_theme_styles');
+    if (!is_array($ts)) {
+        return ['style_id' => null, 'css' => ''];
+    }
+    if ($style_id === null) {
+        $style_id = webchanges_connector_bricks_global_style_id();
+    }
+    if ($style_id === null || !isset($ts[$style_id])) {
+        return ['style_id' => $style_id, 'css' => ''];
+    }
+    return ['style_id' => $style_id, 'css' => (string) ($ts[$style_id]['settings']['css']['stylesheet'] ?? '')];
+}
+
+/**
+ * Write reusable CSS to the global theme-style stylesheet (condition `any`,
+ * so it applies to every page). Creates a global theme style if none exists.
+ * `$mode` is "replace" (default) or "append".
+ *
+ * @return array{style_id: string, bytes: int, created: bool}
+ */
+function webchanges_connector_bricks_set_global_css(string $css, string $mode = 'replace', ?string $style_id = null): array
+{
+    $ts = get_option('bricks_theme_styles');
+    if (!is_array($ts)) {
+        $ts = [];
+    }
+    if ($style_id === null) {
+        $style_id = webchanges_connector_bricks_global_style_id();
+    }
+    $created = false;
+    if ($style_id === null || !isset($ts[$style_id])) {
+        $style_id = $style_id ?: substr(md5((string) wp_generate_password(12, false, false)), 0, 6);
+        $ts[$style_id] = [
+            'label' => 'Global (Webchanges)',
+            'settings' => [
+                '_custom' => true,
+                'conditions' => ['conditions' => [['id' => substr(md5($style_id), 0, 6), 'main' => 'any']]],
+            ],
+        ];
+        $created = true;
+    }
+    if (!isset($ts[$style_id]['settings']) || !is_array($ts[$style_id]['settings'])) {
+        $ts[$style_id]['settings'] = [];
+    }
+    $current = (string) ($ts[$style_id]['settings']['css']['stylesheet'] ?? '');
+    $next = ($mode === 'append')
+        ? trim($current . "\n\n/* added via webchanges */\n" . $css)
+        : $css;
+    $ts[$style_id]['settings']['css']['stylesheet'] = $next;
+    update_option('bricks_theme_styles', $ts);
+    return ['style_id' => (string) $style_id, 'bytes' => strlen($next), 'created' => $created];
 }

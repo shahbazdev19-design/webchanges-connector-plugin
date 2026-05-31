@@ -44,6 +44,30 @@ permission on this repo only. It never ships in the plugin ZIP.
 The repo URL is set by the `WEBCHANGES_CONNECTOR_UPDATE_REPO` constant in
 `webchanges-connector.php` (override in `wp-config.php` if you fork).
 
+## Building with Bricks: native elements first
+
+When generating or importing Bricks designs, the connector builds with **native
+Bricks elements and their style controls** — not raw HTML wrapped in a CSS blob.
+This is a hard requirement, because Bricks renders every `block`/`div`/`section`
+with a built-in `display:flex; flex-direction:column`, so plain `display:flex`
+CSS (which is row by default in a browser) collapses rows into vertical stacks.
+
+`bricks-import-html` enforces this automatically:
+
+- **Layout → native controls.** A class/inline rule of `display:flex|grid` is
+  re-expressed as Bricks controls (`_direction` — defaulting to `row` — plus
+  `_justifyContent`, `_alignItems`, `_flexWrap`, `_columnGap`/`_rowGap`,
+  `_gridTemplateColumns`). These win over Bricks' block defaults.
+- **Icons → native Icon element.** `<i>`/`<span>` with an icon-font class
+  (`ion-*`, `ti-*`, `fa-*`) becomes a real Bricks **Icon** element (renders a
+  glyph instead of an empty styled box).
+- **Reusable CSS → global, not per-page.** Design tokens (`:root{}` variables),
+  base typography, and shared classes belong in the site-wide theme-style
+  stylesheet, not duplicated in each page. Use `bricks-update-global-css`
+  (get / replace / append), or pass `css_target: "global"` to
+  `bricks-import-html`, to write there. Per-page CSS (`css_target: "page"`,
+  the default) is still available for one-off page styles.
+
 ## Layout
 
 ```

@@ -285,6 +285,7 @@ add_action('wp_abilities_api_init', static function () {
             'bricks/list-element-types.php',
             'bricks/import-html.php',
             'bricks/import-json.php',
+            'bricks/update-global-css.php',
         ] as $rel) {
             require_once $dir . $rel;
         }
