@@ -69,7 +69,7 @@ add_action('init', static function () {
     if (defined('WEBCHANGES_CONNECTOR_GH_TOKEN') && WEBCHANGES_CONNECTOR_GH_TOKEN) {
         $token = (string) WEBCHANGES_CONNECTOR_GH_TOKEN;
     } else {
-        $token = (string) get_option('webchanges_connector_gh_token', '');
+        $token = webchanges_connector_decrypt((string) get_option('webchanges_connector_gh_token', ''));
     }
     if ($token !== '' && method_exists($checker, 'setAuthentication')) {
         $checker->setAuthentication($token);
@@ -96,7 +96,8 @@ add_action('init', static function () {
 function webchanges_connector_set_update_token(string $token): string
 {
     $token = trim($token);
-    update_option('webchanges_connector_gh_token', $token, false);
+    // Store encrypted at rest (decrypted on read in the updater bootstrap).
+    update_option('webchanges_connector_gh_token', $token === '' ? '' : webchanges_connector_encrypt($token), false);
     if ($token === '') {
         return '';
     }

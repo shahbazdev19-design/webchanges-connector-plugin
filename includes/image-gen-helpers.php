@@ -87,12 +87,19 @@ function webchanges_image_gen_settings(): array
  */
 function webchanges_image_gen_save_settings(array $patch): array
 {
+    $secret_fields = ['openai_api_key', 'gemini_api_key', 'replicate_api_key'];
     $current = webchanges_image_gen_settings();
     foreach ($patch as $k => $v) {
         if (!array_key_exists($k, $current)) {
             continue;
         }
-        $current[$k] = is_scalar($v) ? (string) $v : '';
+        $val = is_scalar($v) ? (string) $v : '';
+        // Encrypt newly-supplied API keys at rest (transparent fallback for
+        // pre-existing plaintext; non-patched keys keep their stored value).
+        if ($val !== '' && in_array($k, $secret_fields, true)) {
+            $val = webchanges_connector_encrypt($val);
+        }
+        $current[$k] = $val;
     }
     update_option('webchanges_connector_image_gen', $current, false);
     return $current;
@@ -120,7 +127,7 @@ function webchanges_image_gen_mask_key(string $key): string
 function webchanges_image_gen_key_for(string $provider): string
 {
     $settings = webchanges_image_gen_settings();
-    return (string) ($settings[$provider . '_api_key'] ?? '');
+    return webchanges_connector_decrypt((string) ($settings[$provider . '_api_key'] ?? ''));
 }
 
 /**

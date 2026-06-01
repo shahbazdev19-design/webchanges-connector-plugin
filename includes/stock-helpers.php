@@ -74,6 +74,7 @@ function webchanges_stock_settings(): array
  */
 function webchanges_stock_save_settings(array $patch): array
 {
+    $secret_fields = ['pexels_api_key', 'unsplash_access_key', 'pixabay_api_key'];
     $current = webchanges_stock_settings();
     foreach ($patch as $k => $v) {
         if (!array_key_exists($k, $current)) {
@@ -81,9 +82,15 @@ function webchanges_stock_save_settings(array $patch): array
         }
         if ($k === 'fallback_for_ai') {
             $current[$k] = (bool) $v;
-        } else {
-            $current[$k] = is_scalar($v) ? (string) $v : '';
+            continue;
         }
+        $val = is_scalar($v) ? (string) $v : '';
+        // Encrypt newly-supplied secret values at rest. Non-patched secret
+        // fields keep their already-stored (encrypted) value untouched.
+        if ($val !== '' && in_array($k, $secret_fields, true)) {
+            $val = webchanges_connector_encrypt($val);
+        }
+        $current[$k] = $val;
     }
     update_option('webchanges_connector_stock', $current, false);
     return $current;
@@ -118,7 +125,7 @@ function webchanges_stock_key_for(string $provider): string
     if (!isset($map[$provider])) {
         return '';
     }
-    return (string) ($settings[$map[$provider]] ?? '');
+    return webchanges_connector_decrypt((string) ($settings[$map[$provider]] ?? ''));
 }
 
 /**

@@ -780,7 +780,8 @@ function webchanges_connector_render_admin_page(): void
                 <div style="margin-top:6px;">
                     <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--wc-fg-faint);font-weight:600;margin-bottom:10px;"><?php esc_html_e('API keys', 'webchanges-connector'); ?></div>
                     <?php foreach ($image_gen_providers as $slug => $meta):
-                        $current = (string) ($image_gen_settings[$slug . '_api_key'] ?? '');
+                        // Decrypt for display/masking (keys are encrypted at rest).
+                        $current = webchanges_image_gen_key_for((string) $slug);
                         $masked = webchanges_image_gen_mask_key($current);
                     ?>
                         <details class="wc-api-key-row">

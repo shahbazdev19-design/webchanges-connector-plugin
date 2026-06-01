@@ -28,10 +28,11 @@ webchanges_connector_register_ability('image-settings-get', [
             'default_model' => $s['default_model'],
             'default_size' => $s['default_size'],
             'default_style_hint' => $s['default_style_hint'],
+            // Mask the DECRYPTED key (stored values are now encrypted at rest).
             'keys' => [
-                'openai' => webchanges_image_gen_mask_key($s['openai_api_key']),
-                'gemini' => webchanges_image_gen_mask_key($s['gemini_api_key']),
-                'replicate' => webchanges_image_gen_mask_key($s['replicate_api_key']),
+                'openai' => webchanges_image_gen_mask_key(webchanges_image_gen_key_for('openai')),
+                'gemini' => webchanges_image_gen_mask_key(webchanges_image_gen_key_for('gemini')),
+                'replicate' => webchanges_image_gen_mask_key(webchanges_image_gen_key_for('replicate')),
             ],
         ];
     },

@@ -33,9 +33,10 @@ webchanges_connector_register_ability('stock-settings-get', [
         return [
             'default_provider' => (string) $s['default_provider'],
             'fallback_for_ai' => (bool) $s['fallback_for_ai'],
-            'pexels_api_key_masked' => webchanges_stock_mask_key((string) $s['pexels_api_key']),
-            'unsplash_access_key_masked' => webchanges_stock_mask_key((string) $s['unsplash_access_key']),
-            'pixabay_api_key_masked' => webchanges_stock_mask_key((string) $s['pixabay_api_key']),
+            // Mask the DECRYPTED key (stored values are now encrypted at rest).
+            'pexels_api_key_masked' => webchanges_stock_mask_key(webchanges_stock_key_for('pexels')),
+            'unsplash_access_key_masked' => webchanges_stock_mask_key(webchanges_stock_key_for('unsplash')),
+            'pixabay_api_key_masked' => webchanges_stock_mask_key(webchanges_stock_key_for('pixabay')),
         ];
     },
     'meta' => [

@@ -122,7 +122,16 @@ add_action('mcp_adapter_init', static function ($adapter) {
             'webchanges/discover-abilities',
             'webchanges/get-ability-info',
             'webchanges/execute-ability',
-        ]
+        ],
+        [], // resources
+        [], // prompts
+        // Transport-level permission gate. Without this the adapter defaults
+        // to the `read` capability — any logged-in user (down to a Subscriber)
+        // could reach the MCP endpoint and enumerate every ability/schema.
+        // Require manage_options so the perimeter matches the per-ability bar.
+        static function () {
+            return current_user_can('manage_options');
+        }
     );
 }, 20);
 

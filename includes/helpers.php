@@ -288,6 +288,72 @@ function webchanges_connector_is_safe_remote_url(string $url, ?array $allowed_ho
 }
 
 /**
+ * Encryption-at-rest for stored secrets (API keys, update token).
+ *
+ * The key is derived from WordPress's auth salts, which live in wp-config.php
+ * (the filesystem) — separate from the database. So a DB-only compromise (SQL
+ * injection dump, leaked backup) cannot decrypt the stored secrets. Values are
+ * tagged with a `wcenc1:` prefix; decrypt() returns anything without that
+ * prefix verbatim, so pre-existing plaintext keys keep working and are
+ * transparently upgraded to ciphertext the next time they're saved.
+ */
+function webchanges_connector_secret_key(): string
+{
+    $material = '';
+    foreach (['AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT'] as $const) {
+        if (defined($const)) {
+            $material .= (string) constant($const);
+        }
+    }
+    if ($material === '') {
+        // No salts defined (rare) — fall back to a generated per-site secret.
+        $material = (string) get_option('webchanges_connector_secret_material', '');
+        if ($material === '') {
+            $material = function_exists('wp_generate_password') ? wp_generate_password(64, true, true) : bin2hex(random_bytes(32));
+            update_option('webchanges_connector_secret_material', $material, false);
+        }
+    }
+    return hash('sha256', 'webchanges-connector|v1|' . $material, true); // 32 raw bytes
+}
+
+function webchanges_connector_encrypt(string $plaintext): string
+{
+    if ($plaintext === '' || !function_exists('openssl_encrypt')) {
+        return $plaintext;
+    }
+    try {
+        $iv = random_bytes(12);
+    } catch (\Exception $e) {
+        return $plaintext;
+    }
+    $tag = '';
+    $cipher = openssl_encrypt($plaintext, 'aes-256-gcm', webchanges_connector_secret_key(), OPENSSL_RAW_DATA, $iv, $tag);
+    if ($cipher === false) {
+        return $plaintext; // fail open to plaintext rather than lose the value
+    }
+    return 'wcenc1:' . base64_encode($iv . $tag . $cipher);
+}
+
+function webchanges_connector_decrypt(string $stored): string
+{
+    if (strncmp($stored, 'wcenc1:', 7) !== 0) {
+        return $stored; // legacy plaintext (or empty) — return as-is
+    }
+    if (!function_exists('openssl_decrypt')) {
+        return '';
+    }
+    $raw = base64_decode(substr($stored, 7), true);
+    if ($raw === false || strlen($raw) < 28) {
+        return '';
+    }
+    $iv = substr($raw, 0, 12);
+    $tag = substr($raw, 12, 16);
+    $cipher = substr($raw, 28);
+    $plain = openssl_decrypt($cipher, 'aes-256-gcm', webchanges_connector_secret_key(), OPENSSL_RAW_DATA, $iv, $tag);
+    return $plain === false ? '' : $plain;
+}
+
+/**
  * Convenience: register an ability under the webchanges namespace + given category.
  *
  * @param array{
