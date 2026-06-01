@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Plugin Name: Webchanges Connector
- * Plugin URI: https://webchanges.local
+ * Plugin URI: https://www.searchactions.com/
  * Description: Connects a WordPress site to the Webchanges SaaS (or any MCP client) so AI agents can control posts, pages, blocks, media, SEO, permalinks, taxonomies, menus, users, WooCommerce, ACF, and the filesystem.
  * Version: 0.4.1
  * Requires at least: 6.5
