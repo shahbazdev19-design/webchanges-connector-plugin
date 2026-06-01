@@ -625,7 +625,7 @@ function webchanges_connector_render_admin_page(): void
                 <div class="wc-step-num">1</div>
                 <div class="wc-step-body">
                     <h3 class="wc-step-title"><?php esc_html_e('Enable the connector', 'webchanges-connector'); ?></h3>
-                    <p class="wc-step-desc"><?php esc_html_e('Connects this WordPress site to any MCP client (Claude Code, Claude Desktop, Cursor, Webchanges SaaS). When active, the connected agent can edit posts, blocks, Bricks pages, media, SEO, taxonomies, menus, users, and more on this site.', 'webchanges-connector'); ?></p>
+                    <p class="wc-step-desc"><?php esc_html_e('Connects this WordPress site to any MCP-compatible AI client (Claude Code, Claude Desktop, Cursor, and others). When active, the connected agent can edit posts, blocks, Bricks pages, media, SEO, taxonomies, menus, users, and more on this site.', 'webchanges-connector'); ?></p>
                     <form method="post" class="wc-row">
                         <?php wp_nonce_field('webchanges_connector_admin'); ?>
                         <input type="hidden" name="webchanges_connector_action" value="<?php echo $enabled ? 'disable' : 'enable'; ?>">
@@ -1290,7 +1290,7 @@ function webchanges_connector_build_client_configs(string $rest_url, string $use
         ],
         'webchanges' => [
             'code' => sprintf("URL:      %s\nUsername: %s\nPassword: %s", $rest_url, $username, $password),
-            'hint' => __('Paste these three values into Webchanges SaaS → Site Settings → MCP connection.', 'webchanges-connector'),
+            'hint' => __('Paste these three values into your MCP client to connect it to this site.', 'webchanges-connector'),
         ],
     ];
 }

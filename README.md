@@ -1,9 +1,10 @@
 # Webchanges Connector
 
-Connects a WordPress site to the Webchanges SaaS (or any MCP client) so AI
-agents can control posts, pages, blocks, media, SEO, taxonomies, menus, users,
-builders (Bricks / Elementor), ACF, forms, AI image generation, and stock
-photos — plus the filesystem and PHP execution.
+Connects a WordPress site to any MCP-compatible AI client so agents can manage
+posts, pages, blocks, media, SEO, taxonomies, menus, users, builders
+(Bricks / Elementor), ACF, forms, AI image generation, and stock photos.
+Advanced filesystem and PHP-execution abilities are available but disabled by
+default (opt-in from the Abilities Manager).
 
 ## Self-updating across all sites
 
