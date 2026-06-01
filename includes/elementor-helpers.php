@@ -47,7 +47,7 @@ function webchanges_connector_elementor_read(int $post_id): array
  */
 function webchanges_connector_elementor_write(int $post_id, array $elements): int
 {
-    $elements = array_values($elements);
+    $elements = webchanges_connector_elementor_strip_unsafe(array_values($elements));
 
     if (class_exists('\\Elementor\\Plugin') && isset(\Elementor\Plugin::$instance->documents)) {
         $document = \Elementor\Plugin::$instance->documents->get($post_id);
@@ -81,6 +81,43 @@ function webchanges_connector_elementor_write(int $post_id, array $elements): in
         @unlink($css_path);
     }
     return count($elements);
+}
+
+/**
+ * Recursively drop Elementor `html` and `shortcode` widgets unless the current
+ * user may post raw HTML/JS (unfiltered_html). Writing these straight to
+ * _elementor_data bypasses Elementor's editor sanitization, so a caller could
+ * persist raw <script>/shortcode-driven code that runs on the front end.
+ * Matches WordPress's unfiltered_html boundary (single-site admins keep it;
+ * multisite admins, who lack the cap, get these widgets stripped).
+ *
+ * @param list<array<string, mixed>> $elements
+ * @return list<array<string, mixed>>
+ */
+function webchanges_connector_elementor_strip_unsafe(array $elements): array
+{
+    if (current_user_can('unfiltered_html')) {
+        return $elements;
+    }
+    $blocked = ['html', 'shortcode'];
+    $walk = static function (array $nodes) use (&$walk, $blocked): array {
+        $out = [];
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $widget_type = (string) ($node['widgetType'] ?? '');
+            if (($node['elType'] ?? '') === 'widget' && in_array($widget_type, $blocked, true)) {
+                continue;
+            }
+            if (isset($node['elements']) && is_array($node['elements'])) {
+                $node['elements'] = $walk($node['elements']);
+            }
+            $out[] = $node;
+        }
+        return array_values($out);
+    };
+    return $walk($elements);
 }
 
 /**

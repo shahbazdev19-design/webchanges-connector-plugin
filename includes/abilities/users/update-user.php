@@ -64,11 +64,20 @@ webchanges_connector_register_ability('user-update', [
                 return ['success' => false, 'error' => $result->get_error_message()];
             }
         }
+        // Role assignment is limited to roles the current user may grant
+        // (blocks self-escalation to administrator on multisite / under a
+        // narrowed ability gate, and rejects unknown role slugs).
         if (!empty($input['set_role'])) {
+            if (!webchanges_connector_is_assignable_role((string) $input['set_role'])) {
+                return ['success' => false, 'error' => sprintf('Role "%s" is not assignable.', (string) $input['set_role'])];
+            }
             $u->set_role((string) $input['set_role']);
             $changed[] = 'set_role';
         }
         if (!empty($input['add_role'])) {
+            if (!webchanges_connector_is_assignable_role((string) $input['add_role'])) {
+                return ['success' => false, 'error' => sprintf('Role "%s" is not assignable.', (string) $input['add_role'])];
+            }
             $u->add_role((string) $input['add_role']);
             $changed[] = 'add_role';
         }

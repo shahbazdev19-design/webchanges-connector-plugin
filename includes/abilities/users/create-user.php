@@ -44,6 +44,12 @@ webchanges_connector_register_ability('user-create', [
         if (email_exists($email)) {
             return ['success' => false, 'error' => 'email already exists'];
         }
+        // Only allow assigning roles the current user may actually grant
+        // (blocks minting an administrator on multisite / via a narrowed gate,
+        // and rejects unknown role slugs) — validated before creating anything.
+        if (!empty($input['role']) && !webchanges_connector_is_assignable_role((string) $input['role'])) {
+            return ['success' => false, 'error' => sprintf('Role "%s" is not assignable.', (string) $input['role'])];
+        }
         $provided_password = (string) ($input['password'] ?? '');
         $password = $provided_password !== '' ? $provided_password : wp_generate_password(20, true, true);
         $data = [

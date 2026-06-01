@@ -354,6 +354,26 @@ function webchanges_connector_decrypt(string $stored): string
 }
 
 /**
+ * True if $role is one the CURRENT user is allowed to assign. Uses core's
+ * get_editable_roles(), so on multisite a regular admin can't mint an
+ * administrator (only a super admin can), and unknown/invented role slugs are
+ * rejected. Prevents the user-management abilities from being a privilege-
+ * escalation path if an operator narrows the ability gate to a lower-priv
+ * connection account via the webchanges_connector_can_run_ability filter.
+ */
+function webchanges_connector_is_assignable_role(string $role): bool
+{
+    if ($role === '') {
+        return false;
+    }
+    if (!function_exists('get_editable_roles')) {
+        require_once ABSPATH . 'wp-admin/includes/user.php';
+    }
+    $editable = function_exists('get_editable_roles') ? get_editable_roles() : [];
+    return isset($editable[$role]);
+}
+
+/**
  * Convenience: register an ability under the webchanges namespace + given category.
  *
  * @param array{

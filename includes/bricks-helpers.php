@@ -39,10 +39,39 @@ function webchanges_connector_bricks_read(int $post_id, string $area): array
  */
 function webchanges_connector_bricks_write(int $post_id, string $area, array $elements): int
 {
+    $elements = webchanges_connector_bricks_strip_unsafe($elements);
     $key = webchanges_connector_bricks_meta_key($area);
     update_post_meta($post_id, $key, $elements);
     update_post_meta($post_id, '_bricks_editor_mode', 'bricks');
     return count($elements);
+}
+
+/**
+ * Drop Bricks `code` elements unless the current user may post raw HTML/JS
+ * (unfiltered_html). Writing a `code` element straight to postmeta bypasses
+ * the Bricks editor's code-signature gate — on sites with Bricks code
+ * execution enabled that is arbitrary PHP, and it always allows raw <script>.
+ * Mirrors WordPress's own unfiltered_html boundary: full-power admins on a
+ * single site keep it; multisite admins (who lack the cap) get it stripped.
+ *
+ * @param list<array<string, mixed>> $elements
+ * @return list<array<string, mixed>>
+ */
+function webchanges_connector_bricks_strip_unsafe(array $elements): array
+{
+    if (current_user_can('unfiltered_html')) {
+        return $elements;
+    }
+    $blocked = ['code'];
+    $out = [];
+    foreach ($elements as $el) {
+        $name = is_array($el) ? (string) ($el['name'] ?? '') : '';
+        if (in_array($name, $blocked, true)) {
+            continue;
+        }
+        $out[] = $el;
+    }
+    return array_values($out);
 }
 
 /**
