@@ -63,6 +63,11 @@ webchanges_connector_register_ability('image-edit', [
                 $src_mime = (string) get_post_mime_type($src_attachment_id) ?: 'image/png';
             }
         } elseif (!empty($input['source_url'])) {
+            // SSRF guard: only fetch public http(s) URLs (blocks localhost,
+            // private ranges, and the cloud-metadata 169.254.169.254 address).
+            if (!webchanges_connector_is_safe_remote_url((string) $input['source_url'])) {
+                return ['success' => false, 'error' => 'refusing to fetch a non-public or non-http(s) source_url'];
+            }
             $fetched = wp_remote_get((string) $input['source_url'], ['timeout' => 30]);
             if (is_wp_error($fetched) || (int) wp_remote_retrieve_response_code($fetched) !== 200) {
                 return ['success' => false, 'error' => 'Failed to fetch source_url'];

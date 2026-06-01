@@ -46,6 +46,15 @@ webchanges_connector_register_ability('sideload-media', [
 
         $url = (string) $input['url'];
         $timeout = (int) ($input['timeout'] ?? 30);
+        // SSRF guard: only fetch public http(s) URLs. Blocks localhost,
+        // private ranges, and the 169.254.169.254 cloud-metadata address.
+        if (!webchanges_connector_is_safe_remote_url($url)) {
+            return new WP_Error(
+                'webchanges_unsafe_url',
+                __('Refusing to fetch a non-public or non-http(s) URL.', 'webchanges-connector'),
+                ['status' => 400]
+            );
+        }
         $tmp = download_url($url, $timeout);
         if (is_wp_error($tmp)) {
             return $tmp;

@@ -133,22 +133,158 @@ function webchanges_connector_project_root(): string
 }
 
 /**
- * Validate that a path stays inside the project root and resolve symlinks /
- * `..` segments. Returns null if the path escapes the root.
+ * Validate that a path stays inside the project root, defeating `..` traversal
+ * and symlink escapes. Returns null if the path escapes the root.
+ *
+ * Hardening (was a plain wp_normalize_path + strpos prefix check, which does
+ * NOT collapse `..` and does NOT resolve symlinks — so `../../etc/passwd` and
+ * symlinked directories escaped the root):
+ *   1. Reject any path containing a `..` segment outright. Legitimate ability
+ *      calls address files relative to the root or by absolute in-root path;
+ *      they never need to climb out.
+ *   2. Canonicalize the deepest EXISTING ancestor with realpath() (so symlinks
+ *      are resolved) and require it to sit within the canonical root. Using the
+ *      existing ancestor — not the full candidate — lets write/create target a
+ *      not-yet-existing file while still proving its parent dir is in-root.
  */
 function webchanges_connector_resolve_path(string $path): ?string
 {
     $root = webchanges_connector_project_root();
-    $candidate = $path;
-    if (!path_is_absolute($candidate)) {
-        $candidate = $root . ltrim($candidate, "/\\");
-    }
-    $candidate = wp_normalize_path($candidate);
-    $root_normal = wp_normalize_path($root);
-    if (strpos($candidate, $root_normal) !== 0) {
+
+    $root_real = realpath($root);
+    if ($root_real === false) {
         return null;
     }
+    $root_real = rtrim(wp_normalize_path($root_real), '/') . '/';
+
+    $candidate = $path;
+    if (!path_is_absolute($candidate)) {
+        $candidate = rtrim($root, "/\\") . '/' . ltrim($candidate, "/\\");
+    }
+    $candidate = wp_normalize_path($candidate);
+
+    // 1. No parent-dir segments anywhere in the (normalized) path.
+    foreach (explode('/', $candidate) as $segment) {
+        if ($segment === '..') {
+            return null;
+        }
+    }
+
+    // 2. Resolve the deepest existing ancestor and confirm it is inside root.
+    $existing = $candidate;
+    while ($existing !== '' && !file_exists($existing)) {
+        $parent = dirname($existing);
+        if ($parent === $existing) {
+            break;
+        }
+        $existing = $parent;
+    }
+    $existing_real = $existing !== '' ? realpath($existing) : false;
+    if ($existing_real === false) {
+        return null;
+    }
+    $existing_real = rtrim(wp_normalize_path($existing_real), '/') . '/';
+    if (strpos($existing_real, $root_real) !== 0) {
+        return null;
+    }
+
     return $candidate;
+}
+
+/**
+ * True if an IP literal is private, loopback, link-local, or otherwise
+ * reserved (not a public unicast address). FILTER_FLAG_NO_PRIV_RANGE catches
+ * 10/8, 172.16/12, 192.168/16, fc00::/7; FILTER_FLAG_NO_RES_RANGE catches
+ * 0/8, 127/8, 169.254/16 (incl. the 169.254.169.254 cloud-metadata IP),
+ * 240/4, ::1, etc. Anything that fails validation under those flags is blocked.
+ */
+function webchanges_connector_ip_is_blocked(string $ip): bool
+{
+    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+}
+
+/**
+ * SSRF guard for caller-supplied URLs that the server will fetch (media
+ * sideload, stock/image-gen downloads). Returns true only for http(s) URLs
+ * whose host resolves exclusively to public addresses.
+ *
+ * If $allowed_hosts is a non-empty list, the URL's host must be one of them
+ * (exact, case-insensitive) — used to pin the Unsplash download-trigger call
+ * to api.unsplash.com so the attached API key can't be sent to an attacker.
+ *
+ * Fails closed: unresolvable hosts return false.
+ *
+ * @param list<string>|null $allowed_hosts
+ */
+function webchanges_connector_is_safe_remote_url(string $url, ?array $allowed_hosts = null): bool
+{
+    $url = trim($url);
+    if ($url === '') {
+        return false;
+    }
+    $parts = wp_parse_url($url);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+        return false;
+    }
+    $scheme = strtolower((string) $parts['scheme']);
+    if ($scheme !== 'http' && $scheme !== 'https') {
+        return false;
+    }
+    $host = strtolower((string) $parts['host']);
+
+    if (is_array($allowed_hosts) && $allowed_hosts !== []) {
+        $allowed = array_map('strtolower', $allowed_hosts);
+        if (!in_array($host, $allowed, true)) {
+            return false;
+        }
+    }
+
+    // Block obvious internal names before any DNS work.
+    if (
+        $host === 'localhost'
+        || substr($host, -10) === '.localhost'
+        || substr($host, -6) === '.local'
+        || substr($host, -9) === '.internal'
+    ) {
+        return false;
+    }
+
+    // Collect the host's IP(s).
+    $ips = [];
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        $ips[] = $host;
+    } else {
+        if (function_exists('dns_get_record')) {
+            $records = @dns_get_record($host, DNS_A | DNS_AAAA);
+            if (is_array($records)) {
+                foreach ($records as $r) {
+                    if (!empty($r['ip'])) {
+                        $ips[] = $r['ip'];
+                    }
+                    if (!empty($r['ipv6'])) {
+                        $ips[] = $r['ipv6'];
+                    }
+                }
+            }
+        }
+        if ($ips === []) {
+            $resolved = gethostbynamel($host);
+            if (is_array($resolved)) {
+                $ips = $resolved;
+            }
+        }
+    }
+    if ($ips === []) {
+        return false; // can't verify → fail closed
+    }
+    foreach ($ips as $ip) {
+        if (webchanges_connector_ip_is_blocked((string) $ip)) {
+            return false;
+        }
+    }
+
+    // Defense in depth: WP's own validator (re-checks host + private ranges).
+    return (bool) wp_http_validate_url($url);
 }
 
 /**

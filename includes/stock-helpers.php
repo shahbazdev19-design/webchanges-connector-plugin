@@ -380,6 +380,10 @@ function webchanges_stock_import_url(string $download_url, string $alt, int $par
     if ($download_url === '') {
         return ['success' => false, 'error' => 'no download URL'];
     }
+    // SSRF guard on the (potentially caller-supplied) download URL.
+    if (!webchanges_connector_is_safe_remote_url($download_url)) {
+        return ['success' => false, 'error' => 'refusing to fetch a non-public or non-http(s) download URL'];
+    }
 
     $tmp = download_url($download_url, 45);
     if (is_wp_error($tmp)) {
@@ -411,9 +415,12 @@ function webchanges_stock_import_url(string $download_url, string $alt, int $par
     }
 
     // Unsplash API terms: ping the download_location after the actual download.
+    // The trigger URL is caller-supplied, and we attach the Unsplash API key to
+    // it — so pin the host to api.unsplash.com, otherwise a caller could point
+    // it at their own server and harvest the key from the Authorization header.
     if ($provider === 'unsplash' && $unsplash_trigger_url !== '') {
         $key = webchanges_stock_key_for('unsplash');
-        if ($key !== '') {
+        if ($key !== '' && webchanges_connector_is_safe_remote_url($unsplash_trigger_url, ['api.unsplash.com'])) {
             wp_remote_get($unsplash_trigger_url, [
                 'headers' => ['Authorization' => 'Client-ID ' . $key],
                 'timeout' => 10,
