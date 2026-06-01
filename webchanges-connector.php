@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Plugin Name: Webchanges Connector
  * Plugin URI: https://www.searchactions.com/
  * Description: Connects a WordPress site to the Webchanges SaaS (or any MCP client) so AI agents can control posts, pages, blocks, media, SEO, permalinks, taxonomies, menus, users, WooCommerce, ACF, and the filesystem.
- * Version: 0.4.1
+ * Version: 0.5.0
  * Requires at least: 6.5
  * Requires PHP: 8.0
  * Author: Webchanges
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit();
 }
 
-define('WEBCHANGES_CONNECTOR_VERSION', '0.4.1');
+define('WEBCHANGES_CONNECTOR_VERSION', '0.5.0');
 define('WEBCHANGES_CONNECTOR_FILE', __FILE__);
 define('WEBCHANGES_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 define('WEBCHANGES_CONNECTOR_URL', plugin_dir_url(__FILE__));
@@ -94,6 +94,11 @@ add_action('admin_menu', static function () {
 add_action('admin_init', static function () {
     webchanges_connector_handle_admin_actions();
 });
+
+// Run one-time, per-version migrations before abilities register — notably the
+// grandfathering of high-risk abilities for already-active installs (new
+// installs get them off by default). Cheap no-op once the version is recorded.
+webchanges_connector_run_migrations();
 
 if (!webchanges_connector_is_enabled()) {
     return;

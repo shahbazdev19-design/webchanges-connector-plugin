@@ -40,6 +40,10 @@ function webchanges_connector_handle_abilities_admin()
     $enabled = array_map('strval', (array) ($_POST['enabled'] ?? []));
     $disabled = array_values(array_diff($known, $enabled));
     webchanges_connector_set_disabled_abilities($disabled);
+    // High-risk abilities are opt-in: persist exactly which dangerous ones the
+    // operator ticked. Anything not ticked stays unregistered (off by default).
+    $enabled_dangerous = array_values(array_intersect($enabled, webchanges_connector_dangerous_abilities()));
+    webchanges_connector_set_enabled_dangerous_abilities($enabled_dangerous);
     return 'saved';
 }
 
@@ -74,6 +78,17 @@ function webchanges_connector_render_abilities_page(): void
         WEBCHANGES_CONNECTOR_NAMESPACE . '/execute-ability',
     ];
 
+    // High-risk abilities are opt-in (off by default). Their enabled state is
+    // driven by the explicit opt-in list, not the opt-out $disabled list.
+    $dangerous = webchanges_connector_dangerous_abilities();
+    $enabled_dangerous = webchanges_connector_enabled_dangerous_abilities();
+    $is_ability_on = static function (string $name) use ($dangerous, $enabled_dangerous, $disabled): bool {
+        if (in_array($name, $dangerous, true)) {
+            return in_array($name, $enabled_dangerous, true);
+        }
+        return !in_array($name, $disabled, true);
+    };
+
     $by_cat = [];
     foreach ($catalog as $name => $row) {
         $by_cat[$row['category']][] = $row;
@@ -81,7 +96,12 @@ function webchanges_connector_render_abilities_page(): void
     ksort($by_cat);
     $cat_meta = function_exists('webchanges_connector_categories') ? webchanges_connector_categories() : [];
     $total = count($catalog);
-    $active = $total - count(array_intersect(array_keys($catalog), $disabled));
+    $active = 0;
+    foreach (array_keys($catalog) as $cat_name) {
+        if ($is_ability_on((string) $cat_name)) {
+            $active++;
+        }
+    }
 
     echo webchanges_connector_admin_theme_css(); // phpcs:ignore WordPress.Security.EscapeOutput
     ?>
@@ -126,7 +146,8 @@ function webchanges_connector_render_abilities_page(): void
                     <?php foreach ($rows as $r):
                         $name = $r['name'];
                         $is_protected = in_array($name, $protected, true);
-                        $is_enabled = !in_array($name, $disabled, true);
+                        $is_dangerous = in_array($name, $dangerous, true);
+                        $is_enabled = $is_ability_on($name);
                         $short = substr($name, strlen(WEBCHANGES_CONNECTOR_NAMESPACE . '/'));
                     ?>
                         <label class="wc-row wc-ability" data-search="<?php echo esc_attr(strtolower($short . ' ' . $r['description'])); ?>" style="cursor:pointer;align-items:center;">
@@ -136,6 +157,7 @@ function webchanges_connector_render_abilities_page(): void
                                 <span class="wc-row-name">
                                     <span class="wc-mono" style="font-size:13px;color:var(--wc-fg);"><?php echo esc_html($name); ?></span>
                                     <?php if ($is_protected): ?><span class="wc-chip"><?php esc_html_e('always on', 'webchanges-connector'); ?></span><?php endif; ?>
+                                    <?php if ($is_dangerous): ?><span class="wc-chip" style="background:rgba(220,38,38,.15);color:#fca5a5;border-color:rgba(220,38,38,.4);" title="<?php esc_attr_e('High risk: grants code execution or arbitrary file changes. Off by default — enable only if you trust the connected client.', 'webchanges-connector'); ?>">⚠ <?php esc_html_e('high risk — off by default', 'webchanges-connector'); ?></span><?php endif; ?>
                                 </span>
                                 <span class="wc-row-desc"><?php echo esc_html($r['description']); ?></span>
                             </span>

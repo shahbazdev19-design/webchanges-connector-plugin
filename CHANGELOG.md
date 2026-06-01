@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.0 - 2026-06-01
+
+Security hardening release (pre-public-release audit).
+
+- Path traversal fixed in the filesystem abilities (realpath confinement; `..` and symlink escapes blocked).
+- SSRF guards on all server-side fetchers (media sideload, stock import, image-gen source URL); blocks localhost / private / link-local (incl. 169.254.169.254).
+- Unsplash download-trigger pinned to api.unsplash.com so the API key can't be exfiltrated via a caller-supplied URL.
+- API keys (OpenAI/Gemini/Replicate, Pexels/Unsplash/Pixabay) and the updater token are now encrypted at rest (AES-256-GCM keyed off WP salts). Transparent migration: existing plaintext keys keep working and re-encrypt on next save.
+- MCP transport now requires `manage_options` (was the default `read` capability).
+- User role assignment limited to roles the current user may grant (no minting administrators).
+- Bricks `code` / Elementor `html`+`shortcode` elements gated by the `unfiltered_html` capability when written via the abilities.
+- **High-risk abilities (execute-php, filesystem write/edit/delete/enable/disable) are now OFF by default** and must be opted in from the Abilities Manager. Existing active installs are grandfathered so auto-apply keeps working; set the `WEBCHANGES_CONNECTOR_ENABLE_DANGEROUS` constant to force-enable.
+- Set real Plugin URI.
+
 ## 0.4.1 - 2026-06-01
 
 - Active-install telemetry: activate/heartbeat/deactivate ping to backend

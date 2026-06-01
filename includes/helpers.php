@@ -409,6 +409,17 @@ function webchanges_connector_register_ability(string $short_name, array $spec):
         return; // site operator has switched this ability off
     }
 
+    // High-risk abilities (arbitrary PHP execution, filesystem write/delete)
+    // are OPT-IN: a leaked connection credential should not equal instant RCE.
+    // They're catalogued above so the Abilities Manager can offer them, but
+    // not exposed to the agent until an operator explicitly enables them.
+    if (
+        in_array($name, webchanges_connector_dangerous_abilities(), true)
+        && !in_array($name, webchanges_connector_enabled_dangerous_abilities(), true)
+    ) {
+        return;
+    }
+
     $spec['permission_callback'] = $spec['permission_callback'] ?? 'webchanges_connector_permission_callback';
     $meta = $spec['meta'] ?? [];
     $meta['show_in_rest'] = $meta['show_in_rest'] ?? true;
@@ -426,6 +437,84 @@ function webchanges_connector_disabled_abilities(): array
 {
     $v = get_option('webchanges_connector_disabled_abilities', []);
     return is_array($v) ? array_values(array_filter(array_map('strval', $v))) : [];
+}
+
+/**
+ * High-risk abilities that are OFF by default and must be explicitly opted into
+ * (Abilities Manager). Arbitrary PHP execution and filesystem write/edit/delete
+ * (and the enable/disable rename pair) turn a connection credential into full
+ * server control, so they don't register until an operator turns them on.
+ *
+ * @return list<string>
+ */
+function webchanges_connector_dangerous_abilities(): array
+{
+    $ns = WEBCHANGES_CONNECTOR_NAMESPACE . '/';
+    return [
+        $ns . 'execute-php',
+        $ns . 'write-file',
+        $ns . 'edit-file',
+        $ns . 'delete-file',
+        $ns . 'enable-file',
+        $ns . 'disable-file',
+    ];
+}
+
+/**
+ * Full names of high-risk abilities the operator has explicitly enabled.
+ * A `WEBCHANGES_CONNECTOR_ENABLE_DANGEROUS` constant (wp-config.php) force-
+ * enables all of them for power users / fully self-hosted setups.
+ *
+ * @return list<string>
+ */
+function webchanges_connector_enabled_dangerous_abilities(): array
+{
+    if (defined('WEBCHANGES_CONNECTOR_ENABLE_DANGEROUS') && WEBCHANGES_CONNECTOR_ENABLE_DANGEROUS) {
+        return webchanges_connector_dangerous_abilities();
+    }
+    $v = get_option('webchanges_connector_enabled_dangerous', []);
+    $list = is_array($v) ? array_values(array_filter(array_map('strval', $v))) : [];
+    // Only honor names that are actually in the dangerous set.
+    return array_values(array_intersect($list, webchanges_connector_dangerous_abilities()));
+}
+
+/**
+ * Persist the opted-in high-risk abilities list (only dangerous names kept).
+ *
+ * @param list<string> $names
+ */
+function webchanges_connector_set_enabled_dangerous_abilities(array $names): void
+{
+    $clean = array_values(array_intersect(
+        array_map('strval', $names),
+        webchanges_connector_dangerous_abilities()
+    ));
+    update_option('webchanges_connector_enabled_dangerous', $clean, false);
+}
+
+/**
+ * One-time migrations, run once per plugin version on load.
+ *
+ * The important one: high-risk abilities became opt-in (off by default) in
+ * this version. A brand-new install should get them OFF (secure default), but
+ * a site that was ALREADY running the connector relied on them (the SaaS
+ * auto-apply uses execute-php / write-file for Bricks edits + cache-busting),
+ * so we grandfather those in to avoid breaking live integrations on update.
+ * "Already running" = the connector is currently enabled at first load after
+ * the update; a fresh install hasn't been enabled yet, so it stays locked down.
+ */
+function webchanges_connector_run_migrations(): void
+{
+    if (get_option('webchanges_connector_version', '') === WEBCHANGES_CONNECTOR_VERSION) {
+        return;
+    }
+    if (get_option('webchanges_connector_enabled_dangerous', null) === null) {
+        $grandfather = webchanges_connector_is_enabled()
+            ? webchanges_connector_dangerous_abilities() // existing active install — preserve
+            : []; // fresh install — secure default (off)
+        webchanges_connector_set_enabled_dangerous_abilities($grandfather);
+    }
+    update_option('webchanges_connector_version', WEBCHANGES_CONNECTOR_VERSION, false);
 }
 
 /**
