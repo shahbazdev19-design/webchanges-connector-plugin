@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 - 2026-06-01
+
+- Active-install telemetry: activate/heartbeat/deactivate ping to backend
+
 ## 0.4.0 - 2026-05-31
 
 - Native-elements-first Bricks import (native layout controls + Icon elements) + bricks-update-global-css and css_target
