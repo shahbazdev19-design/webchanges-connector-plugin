@@ -58,6 +58,7 @@ require_once WEBCHANGES_CONNECTOR_DIR . 'includes/forms-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/image-gen-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/stock-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/skills-helpers.php';
+require_once WEBCHANGES_CONNECTOR_DIR . 'includes/telemetry.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/updater.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/admin-page.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/admin-shared.php';
