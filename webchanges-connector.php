@@ -246,6 +246,7 @@ add_action('wp_abilities_api_init', static function () {
     require_once $dir . 'meta/discover-abilities.php';
     require_once $dir . 'meta/get-ability-info.php';
     require_once $dir . 'meta/execute-ability.php';
+    require_once $dir . 'meta/verify-change.php';
 
     foreach ([
         'filesystem/read-file.php',
