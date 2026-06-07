@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2 - 2026-06-07
+
+- Add webchanges/verify-change ability (powers the 'change landed' confirmation)
+
 ## 0.5.0 - 2026-06-01
 
 Security hardening release (pre-public-release audit).
