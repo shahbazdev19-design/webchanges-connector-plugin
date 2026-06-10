@@ -49,6 +49,49 @@ webchanges_connector_register_ability('forms-update-form', [
                 ],
             ],
             'remove_field_ids' => ['type' => 'array', 'items' => ['type' => 'integer']],
+            'settings' => [
+                'type' => 'object',
+                'description' => '(Formidable) Submit button + on-submit behaviour.',
+                'properties' => [
+                    'submit_button' => ['type' => 'string'],
+                    'success_action' => ['type' => 'string', 'enum' => ['message', 'redirect', 'page']],
+                    'success_msg' => ['type' => 'string'],
+                    'redirect_url' => ['type' => 'string'],
+                    'redirect_page_id' => ['type' => 'integer'],
+                ],
+            ],
+            'notifications' => [
+                'type' => 'array',
+                'description' => '(Formidable) Add or update email notifications (pass action_id to update an existing one). Supports conditional routing.',
+                'items' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'action_id' => ['type' => 'integer', 'description' => 'Existing notification id to update; omit to create.'],
+                        'to' => ['type' => 'string', 'description' => 'Recipient(s), or "[Field Label]" / "[123]" to route to a submitted value.'],
+                        'subject' => ['type' => 'string'],
+                        'message' => ['type' => 'string'],
+                        'reply_to' => ['type' => 'string'],
+                        'cc' => ['type' => 'string'],
+                        'bcc' => ['type' => 'string'],
+                        'from' => ['type' => 'string'],
+                        'name' => ['type' => 'string'],
+                        'match' => ['type' => 'string', 'enum' => ['any', 'all']],
+                        'routing_action' => ['type' => 'string', 'enum' => ['send', 'stop']],
+                        'conditions' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'field_id' => ['type' => 'string', 'description' => 'Field id or label.'],
+                                    'operator' => ['type' => 'string', 'enum' => ['equals', 'not_equals', 'greater', 'less', 'contains', 'not_contains']],
+                                    'value' => ['type' => 'string'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'remove_notification_ids' => ['type' => 'array', 'items' => ['type' => 'integer']],
         ],
         'required' => ['form_id'],
         'additionalProperties' => false,
@@ -61,6 +104,8 @@ webchanges_connector_register_ability('forms-update-form', [
             'added' => ['type' => 'array', 'items' => ['type' => 'integer']],
             'updated' => ['type' => 'array', 'items' => ['type' => 'integer']],
             'removed' => ['type' => 'array', 'items' => ['type' => 'integer']],
+            'notifications' => ['type' => 'array', 'items' => ['type' => 'integer']],
+            'removed_notifications' => ['type' => 'array', 'items' => ['type' => 'integer']],
         ],
     ],
     'execute_callback' => static function (array $input): array {
@@ -88,6 +133,8 @@ webchanges_connector_register_ability('forms-update-form', [
                 'added' => $res['added'] ?? [],
                 'updated' => $res['updated'] ?? [],
                 'removed' => $res['removed'] ?? [],
+                'notifications' => $res['notifications'] ?? [],
+                'removed_notifications' => $res['removed_notifications'] ?? [],
             ];
         }
 

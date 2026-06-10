@@ -33,6 +33,48 @@ webchanges_connector_register_ability('forms-create-form', [
                 ],
             ],
             'notification_email' => ['type' => 'string', 'description' => 'Where to send form submissions. Defaults to the site admin_email.'],
+            'settings' => [
+                'type' => 'object',
+                'description' => '(Formidable) Form settings: submit button + what happens on submit.',
+                'properties' => [
+                    'submit_button' => ['type' => 'string'],
+                    'success_action' => ['type' => 'string', 'enum' => ['message', 'redirect', 'page']],
+                    'success_msg' => ['type' => 'string'],
+                    'redirect_url' => ['type' => 'string'],
+                    'redirect_page_id' => ['type' => 'integer'],
+                ],
+            ],
+            'notifications' => [
+                'type' => 'array',
+                'description' => '(Formidable) Email notifications that fire on submit, with optional conditional routing.',
+                'items' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'to' => ['type' => 'string', 'description' => 'Recipient email(s), comma-separated — or "[Field Label]" / "[123]" to route to a submitted field value.'],
+                        'subject' => ['type' => 'string'],
+                        'message' => ['type' => 'string'],
+                        'reply_to' => ['type' => 'string'],
+                        'cc' => ['type' => 'string'],
+                        'bcc' => ['type' => 'string'],
+                        'from' => ['type' => 'string'],
+                        'name' => ['type' => 'string'],
+                        'match' => ['type' => 'string', 'enum' => ['any', 'all'], 'description' => 'Match any/all conditions (routing).'],
+                        'routing_action' => ['type' => 'string', 'enum' => ['send', 'stop']],
+                        'conditions' => [
+                            'type' => 'array',
+                            'description' => 'Routing rules: only send (or stop) when these field conditions match.',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'field_id' => ['type' => 'string', 'description' => 'Field id or label.'],
+                                    'operator' => ['type' => 'string', 'enum' => ['equals', 'not_equals', 'greater', 'less', 'contains', 'not_contains']],
+                                    'value' => ['type' => 'string'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
         ],
         'required' => ['title', 'fields'],
         'additionalProperties' => false,
@@ -43,6 +85,7 @@ webchanges_connector_register_ability('forms-create-form', [
             'provider' => ['type' => 'string'],
             'form_id' => ['type' => 'integer'],
             'shortcode' => ['type' => 'string'],
+            'notification_ids' => ['type' => 'array', 'items' => ['type' => 'integer']],
         ],
     ],
     'execute_callback' => static function (array $input): array {
@@ -230,7 +273,13 @@ webchanges_connector_register_ability('forms-create-form', [
         }
 
         if ($provider === 'formidable') {
-            $res = webchanges_connector_forms_formidable_create($title, $fields, $notify);
+            $res = webchanges_connector_forms_formidable_create(
+                $title,
+                $fields,
+                $notify,
+                is_array($input['settings'] ?? null) ? $input['settings'] : [],
+                is_array($input['notifications'] ?? null) ? $input['notifications'] : []
+            );
             if (!empty($res['error'])) {
                 return ['success' => false, 'error' => (string) $res['error']];
             }
@@ -238,6 +287,7 @@ webchanges_connector_register_ability('forms-create-form', [
                 'provider' => 'formidable',
                 'form_id' => (int) $res['form_id'],
                 'shortcode' => (string) $res['shortcode'],
+                'notification_ids' => $res['notification_ids'] ?? [],
             ];
         }
 

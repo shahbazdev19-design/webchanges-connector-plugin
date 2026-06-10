@@ -249,7 +249,13 @@ function webchanges_connector_forms_get(string $provider, int $form_id): ?array
                 return null;
             }
             $fields = class_exists('FrmField') ? \FrmField::get_all_for_form($form_id) : [];
-            return ['id' => $form_id, 'title' => (string) $form->name, 'form' => (array) $form, 'fields' => $fields];
+            return [
+                'id' => $form_id,
+                'title' => (string) $form->name,
+                'form' => (array) $form,
+                'fields' => $fields,
+                'actions' => webchanges_connector_forms_formidable_get_actions($form_id),
+            ];
         case 'forminator':
             $post = get_post($form_id);
             if (!$post || $post->post_type !== 'forminator_forms') {
@@ -325,28 +331,208 @@ function webchanges_connector_forms_formidable_create_field(int $form_id, array 
     return is_numeric($fid) ? (int) $fid : 0;
 }
 
-/** Best-effort default email-notification action for a new Formidable form. */
-function webchanges_connector_forms_formidable_email_action(int $form_id, string $title, string $notify): void
+/** Resolve a field reference (numeric id, or a field label/name) to a Formidable field id. */
+function webchanges_connector_forms_formidable_resolve_field(int $form_id, $ref): int
 {
-    if ($notify === '') {
-        return;
+    if (is_numeric($ref)) {
+        return (int) $ref;
+    }
+    $needle = strtolower(trim((string) $ref));
+    if ($needle === '' || !class_exists('FrmField')) {
+        return 0;
+    }
+    foreach ((array) \FrmField::get_all_for_form($form_id) as $f) {
+        if (strtolower((string) $f->name) === $needle) {
+            return (int) $f->id;
+        }
+    }
+    return 0;
+}
+
+/**
+ * Build a Formidable conditional-logic ("routing") block from an abstract list.
+ * Routing = only send (or stop) the notification when field conditions are met.
+ *
+ * @param array<int,array<string,mixed>> $conditions  [{field_id|field, operator, value}]
+ * @return array<string,mixed>
+ */
+function webchanges_connector_forms_formidable_build_conditions(int $form_id, array $conditions, string $match, string $action): array
+{
+    $opMap = [
+        'equals' => '==', '==' => '==', 'not_equals' => '!=', '!=' => '!=',
+        'greater' => '>', '>' => '>', 'less' => '<', '<' => '<',
+        'contains' => 'LIKE', 'not_contains' => 'not LIKE',
+    ];
+    $out = [
+        'send_stop' => ($action === 'stop') ? 'stop' : 'send',
+        'any_all' => ($match === 'all') ? 'all' : 'any',
+    ];
+    $i = 0;
+    foreach ($conditions as $c) {
+        if (!is_array($c)) {
+            continue;
+        }
+        $fid = webchanges_connector_forms_formidable_resolve_field($form_id, $c['field_id'] ?? $c['field'] ?? '');
+        if ($fid <= 0) {
+            continue;
+        }
+        $out[$i] = [
+            'hide_field' => (string) $fid,
+            'hide_field_cond' => $opMap[strtolower((string) ($c['operator'] ?? 'equals'))] ?? '==',
+            'hide_opt' => (string) ($c['value'] ?? ''),
+        ];
+        $i++;
+    }
+    return $out;
+}
+
+/**
+ * Create or update a Formidable email-notification action (with optional routing).
+ * Pass `action_id` in $spec to update an existing action; omit to create one.
+ * `to` may be a static address, comma list, or "[Field Label]"/"[123]" to route to
+ * a submitted value. Returns the action post id (0 on failure).
+ *
+ * @param array<string,mixed> $spec
+ */
+function webchanges_connector_forms_formidable_set_email_action(int $form_id, array $spec, string $title = ''): int
+{
+    $to = trim((string) ($spec['to'] ?? ''));
+    if (preg_match('/^\[(.+)\]$/', $to, $m)) {
+        $fid = webchanges_connector_forms_formidable_resolve_field($form_id, $m[1]);
+        if ($fid > 0) {
+            $to = '[' . $fid . ']';
+        }
     }
     $settings = [
-        'email_to' => $notify,
-        'email_subject' => sprintf(__('New %s submission', 'webchanges-connector'), $title),
-        'email_message' => '[default-message]',
-        'from' => '[admin_email]',
         'event' => ['create'],
+        'email_to' => $to !== '' ? $to : '[admin_email]',
+        'cc' => (string) ($spec['cc'] ?? ''),
+        'bcc' => (string) ($spec['bcc'] ?? ''),
+        'reply_to' => (string) ($spec['reply_to'] ?? ''),
+        'from' => (string) ($spec['from'] ?? '[admin_email]'),
+        'email_subject' => (string) ($spec['subject'] ?? sprintf(__('New %s submission', 'webchanges-connector'), $title)),
+        'email_message' => (string) ($spec['message'] ?? '[default-message]'),
+        'inc_user_info' => '',
     ];
-    wp_insert_post([
+    if (!empty($spec['conditions']) && is_array($spec['conditions'])) {
+        $settings['conditions'] = webchanges_connector_forms_formidable_build_conditions(
+            $form_id,
+            $spec['conditions'],
+            (string) ($spec['match'] ?? 'any'),
+            (string) ($spec['routing_action'] ?? 'send')
+        );
+    }
+    $post = [
         'post_type' => 'frm_form_actions',
         'post_status' => 'publish',
-        'post_title' => __('Email Notification', 'webchanges-connector'),
+        'post_title' => (string) ($spec['name'] ?? __('Email Notification', 'webchanges-connector')),
         'post_excerpt' => 'email',
-        'post_name' => 'frm_email_' . $form_id,
         'menu_order' => $form_id,
         'post_content' => wp_slash((string) (wp_json_encode($settings) ?: '')),
-    ]);
+    ];
+    $action_id = (int) ($spec['action_id'] ?? 0);
+    if ($action_id > 0 && get_post($action_id)) {
+        $post['ID'] = $action_id;
+        wp_update_post($post);
+        return $action_id;
+    }
+    $new = wp_insert_post($post);
+    return is_wp_error($new) ? 0 : (int) $new;
+}
+
+/** Find the on-submit action post id for a form (0 if none). */
+function webchanges_connector_forms_formidable_find_action(int $form_id, string $type): int
+{
+    foreach (get_posts(['post_type' => 'frm_form_actions', 'post_status' => 'publish', 'numberposts' => 50, 'post_excerpt' => $type]) as $a) {
+        if ((int) $a->menu_order === $form_id) {
+            return (int) $a->ID;
+        }
+    }
+    return 0;
+}
+
+/**
+ * Apply form settings: submit button + success behaviour (message / redirect / page).
+ * Writes the form options and upserts the on-submit action (Formidable 6.x).
+ *
+ * @param array<string,mixed> $settings
+ */
+function webchanges_connector_forms_formidable_set_settings(int $form_id, array $settings): void
+{
+    if (!class_exists('FrmForm') || $settings === []) {
+        return;
+    }
+    $form = \FrmForm::getOne($form_id);
+    $options = ($form && isset($form->options)) ? (array) maybe_unserialize($form->options) : [];
+    if (isset($settings['submit_button'])) {
+        $options['submit_value'] = (string) $settings['submit_button'];
+    }
+    $success = (string) ($settings['success_action'] ?? '');
+    if ($success !== '') {
+        $options['success_action'] = $success;
+        if (isset($settings['success_msg'])) {
+            $options['success_msg'] = (string) $settings['success_msg'];
+        }
+        if ($success === 'redirect' && isset($settings['redirect_url'])) {
+            $options['success_url'] = (string) $settings['redirect_url'];
+        }
+        if ($success === 'page' && isset($settings['redirect_page_id'])) {
+            $options['success_page_id'] = (int) $settings['redirect_page_id'];
+        }
+    }
+    \FrmForm::update($form_id, ['options' => $options]);
+
+    if ($success !== '') {
+        $onsubmit = [
+            'event' => ['create'],
+            'success_action' => $success,
+            'success_msg' => (string) ($settings['success_msg'] ?? ''),
+            'show_form' => '',
+        ];
+        if ($success === 'redirect' && isset($settings['redirect_url'])) {
+            $onsubmit['success_url'] = (string) $settings['redirect_url'];
+        }
+        if ($success === 'page' && isset($settings['redirect_page_id'])) {
+            $onsubmit['success_page_id'] = (int) $settings['redirect_page_id'];
+        }
+        $post = [
+            'post_type' => 'frm_form_actions',
+            'post_status' => 'publish',
+            'post_title' => 'On Submit',
+            'post_excerpt' => 'on_submit',
+            'menu_order' => $form_id,
+            'post_content' => wp_slash((string) (wp_json_encode($onsubmit) ?: '')),
+        ];
+        $existing = webchanges_connector_forms_formidable_find_action($form_id, 'on_submit');
+        if ($existing > 0) {
+            $post['ID'] = $existing;
+            wp_update_post($post);
+        } else {
+            wp_insert_post($post);
+        }
+    }
+}
+
+/** Return a form's actions (notifications / routing / on-submit) for inspection. */
+function webchanges_connector_forms_formidable_get_actions(int $form_id): array
+{
+    $out = [];
+    foreach (get_posts(['post_type' => 'frm_form_actions', 'post_status' => 'publish', 'numberposts' => 50]) as $a) {
+        if ((int) $a->menu_order !== $form_id) {
+            continue;
+        }
+        $settings = json_decode((string) $a->post_content, true);
+        if ($settings === null) {
+            $settings = maybe_unserialize($a->post_content);
+        }
+        $out[] = [
+            'action_id' => (int) $a->ID,
+            'type' => (string) $a->post_excerpt,
+            'name' => (string) $a->post_title,
+            'settings' => $settings,
+        ];
+    }
+    return $out;
 }
 
 /**
@@ -356,7 +542,7 @@ function webchanges_connector_forms_formidable_email_action(int $form_id, string
  * @param list<array<string,mixed>> $fields
  * @return array<string,mixed>
  */
-function webchanges_connector_forms_formidable_create(string $title, array $fields, string $notify): array
+function webchanges_connector_forms_formidable_create(string $title, array $fields, string $notify, array $settings = [], array $notifications = []): array
 {
     if (!class_exists('FrmForm')) {
         return ['error' => 'Formidable Forms (FrmForm) is not available on this site.'];
@@ -383,8 +569,27 @@ function webchanges_connector_forms_formidable_create(string $title, array $fiel
             webchanges_connector_forms_formidable_create_field($form_id, $f, $order++);
         }
     }
-    webchanges_connector_forms_formidable_email_action($form_id, $title, $notify);
-    return ['form_id' => $form_id, 'shortcode' => sprintf('[formidable id=%d]', $form_id)];
+    if ($settings !== []) {
+        webchanges_connector_forms_formidable_set_settings($form_id, $settings);
+    }
+    $notif_ids = [];
+    if ($notifications !== []) {
+        foreach ($notifications as $n) {
+            if (is_array($n)) {
+                $nid = webchanges_connector_forms_formidable_set_email_action($form_id, $n, $title);
+                if ($nid) {
+                    $notif_ids[] = $nid;
+                }
+            }
+        }
+    } else {
+        // Default admin notification when none specified.
+        $nid = webchanges_connector_forms_formidable_set_email_action($form_id, ['to' => $notify], $title);
+        if ($nid) {
+            $notif_ids[] = $nid;
+        }
+    }
+    return ['form_id' => $form_id, 'shortcode' => sprintf('[formidable id=%d]', $form_id), 'notification_ids' => $notif_ids];
 }
 
 /**
@@ -459,5 +664,35 @@ function webchanges_connector_forms_formidable_update(int $form_id, array $input
         }
     }
 
-    return ['form_id' => $form_id, 'added' => $added, 'updated' => $updated, 'removed' => $removed];
+    if (!empty($input['settings']) && is_array($input['settings'])) {
+        webchanges_connector_forms_formidable_set_settings($form_id, $input['settings']);
+    }
+
+    $notifications = [];
+    foreach ((array) ($input['notifications'] ?? []) as $n) {
+        if (is_array($n)) {
+            $nid = webchanges_connector_forms_formidable_set_email_action($form_id, $n);
+            if ($nid) {
+                $notifications[] = $nid;
+            }
+        }
+    }
+
+    $removed_notifications = [];
+    foreach ((array) ($input['remove_notification_ids'] ?? []) as $aid) {
+        $aid = (int) $aid;
+        if ($aid > 0 && get_post($aid)) {
+            wp_delete_post($aid, true);
+            $removed_notifications[] = $aid;
+        }
+    }
+
+    return [
+        'form_id' => $form_id,
+        'added' => $added,
+        'updated' => $updated,
+        'removed' => $removed,
+        'notifications' => $notifications,
+        'removed_notifications' => $removed_notifications,
+    ];
 }
