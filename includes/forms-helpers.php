@@ -276,3 +276,188 @@ function webchanges_connector_forms_get(string $provider, int $form_id): ?array
     }
     return null;
 }
+
+/* ─────────────────────────── Formidable Forms (create / edit) ───────────────
+ * Built on Formidable's FrmForm / FrmField PHP API (the same classes the get/
+ * list paths use). Abstract field specs ({type,label,required,description,
+ * choices}) map to native Formidable field types; Pro-only types degrade to a
+ * base type when Formidable Pro isn't active so the call never hard-fails.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** Map an abstract field type → a Formidable field type (Pro-aware). */
+function webchanges_connector_forms_formidable_type(string $abstract): string
+{
+    $base = [
+        'email' => 'email', 'url' => 'url', 'number' => 'number',
+        'text' => 'text', 'textarea' => 'textarea', 'select' => 'select',
+        'checkbox' => 'checkbox', 'radio' => 'radio',
+    ];
+    if (isset($base[$abstract])) {
+        return $base[$abstract];
+    }
+    $pro = class_exists('FrmProDb') || defined('FRM_PRO_VERSION');
+    $proMap = ['name' => 'name', 'phone' => 'phone', 'date' => 'date'];
+    if (isset($proMap[$abstract])) {
+        return $pro ? $proMap[$abstract] : 'text';
+    }
+    return 'text';
+}
+
+/** Create one Formidable field from an abstract spec. Returns field id or 0. */
+function webchanges_connector_forms_formidable_create_field(int $form_id, array $f, int $order): int
+{
+    if (!class_exists('FrmField')) {
+        return 0;
+    }
+    $type = webchanges_connector_forms_formidable_type((string) ($f['type'] ?? 'text'));
+    $values = [
+        'form_id' => $form_id,
+        'type' => $type,
+        'name' => (string) ($f['label'] ?? ucfirst($type)),
+        'description' => (string) ($f['description'] ?? ''),
+        'field_order' => $order,
+        'required' => !empty($f['required']) ? 1 : 0,
+    ];
+    if (!empty($f['choices']) && is_array($f['choices']) && in_array($type, ['select', 'checkbox', 'radio'], true)) {
+        $values['options'] = array_values(array_map('strval', $f['choices']));
+    }
+    $fid = \FrmField::create($values);
+    return is_numeric($fid) ? (int) $fid : 0;
+}
+
+/** Best-effort default email-notification action for a new Formidable form. */
+function webchanges_connector_forms_formidable_email_action(int $form_id, string $title, string $notify): void
+{
+    if ($notify === '') {
+        return;
+    }
+    $settings = [
+        'email_to' => $notify,
+        'email_subject' => sprintf(__('New %s submission', 'webchanges-connector'), $title),
+        'email_message' => '[default-message]',
+        'from' => '[admin_email]',
+        'event' => ['create'],
+    ];
+    wp_insert_post([
+        'post_type' => 'frm_form_actions',
+        'post_status' => 'publish',
+        'post_title' => __('Email Notification', 'webchanges-connector'),
+        'post_excerpt' => 'email',
+        'post_name' => 'frm_email_' . $form_id,
+        'menu_order' => $form_id,
+        'post_content' => wp_slash((string) (wp_json_encode($settings) ?: '')),
+    ]);
+}
+
+/**
+ * Create a Formidable form + fields. Returns ['form_id'=>int,'shortcode'=>string]
+ * or ['error'=>string].
+ *
+ * @param list<array<string,mixed>> $fields
+ * @return array<string,mixed>
+ */
+function webchanges_connector_forms_formidable_create(string $title, array $fields, string $notify): array
+{
+    if (!class_exists('FrmForm')) {
+        return ['error' => 'Formidable Forms (FrmForm) is not available on this site.'];
+    }
+    $key = sanitize_title($title) . '-' . strtolower((string) wp_generate_password(4, false, false));
+    $form_id = \FrmForm::create([
+        'name' => $title,
+        'description' => '',
+        'form_key' => $key,
+        'status' => 'published',
+        'options' => [
+            'submit_value' => __('Submit', 'webchanges-connector'),
+            'success_action' => 'message',
+            'success_msg' => __('Thanks! Your submission has been received.', 'webchanges-connector'),
+        ],
+    ]);
+    if (!is_numeric($form_id) || (int) $form_id <= 0) {
+        return ['error' => 'FrmForm::create failed.'];
+    }
+    $form_id = (int) $form_id;
+    $order = 0;
+    foreach ($fields as $f) {
+        if (is_array($f)) {
+            webchanges_connector_forms_formidable_create_field($form_id, $f, $order++);
+        }
+    }
+    webchanges_connector_forms_formidable_email_action($form_id, $title, $notify);
+    return ['form_id' => $form_id, 'shortcode' => sprintf('[formidable id=%d]', $form_id)];
+}
+
+/**
+ * Edit a Formidable form: title/description and add/update/remove fields.
+ *
+ * @param array<string,mixed> $input
+ * @return array<string,mixed>
+ */
+function webchanges_connector_forms_formidable_update(int $form_id, array $input): array
+{
+    if (!class_exists('FrmForm') || !class_exists('FrmField')) {
+        return ['error' => 'Formidable Forms is not available on this site.'];
+    }
+    if (!\FrmForm::getOne($form_id)) {
+        return ['error' => 'Formidable form not found: ' . $form_id];
+    }
+
+    $form_update = [];
+    if (isset($input['title']) && $input['title'] !== '') {
+        $form_update['name'] = (string) $input['title'];
+    }
+    if (array_key_exists('description', $input)) {
+        $form_update['description'] = (string) $input['description'];
+    }
+    if ($form_update !== []) {
+        \FrmForm::update($form_id, $form_update);
+    }
+
+    $existing = \FrmField::get_all_for_form($form_id);
+    $order = is_array($existing) ? count($existing) : 0;
+
+    $added = [];
+    foreach ((array) ($input['add_fields'] ?? []) as $f) {
+        if (is_array($f)) {
+            $fid = webchanges_connector_forms_formidable_create_field($form_id, $f, $order++);
+            if ($fid) {
+                $added[] = $fid;
+            }
+        }
+    }
+
+    $updated = [];
+    foreach ((array) ($input['update_fields'] ?? []) as $u) {
+        if (!is_array($u) || empty($u['field_id'])) {
+            continue;
+        }
+        $vals = [];
+        if (isset($u['label'])) {
+            $vals['name'] = (string) $u['label'];
+        }
+        if (array_key_exists('description', $u)) {
+            $vals['description'] = (string) $u['description'];
+        }
+        if (array_key_exists('required', $u)) {
+            $vals['required'] = !empty($u['required']) ? 1 : 0;
+        }
+        if (!empty($u['choices']) && is_array($u['choices'])) {
+            $vals['options'] = array_values(array_map('strval', $u['choices']));
+        }
+        if ($vals !== []) {
+            \FrmField::update((int) $u['field_id'], $vals);
+            $updated[] = (int) $u['field_id'];
+        }
+    }
+
+    $removed = [];
+    foreach ((array) ($input['remove_field_ids'] ?? []) as $rid) {
+        $rid = (int) $rid;
+        if ($rid > 0) {
+            \FrmField::destroy($rid);
+            $removed[] = $rid;
+        }
+    }
+
+    return ['form_id' => $form_id, 'added' => $added, 'updated' => $updated, 'removed' => $removed];
+}

@@ -9,14 +9,14 @@ if (!defined('ABSPATH')) {
 webchanges_connector_register_ability('forms-create-form', [
     'label' => __('Create Form', 'webchanges-connector'),
     'description' => __(
-        'Create a new form on the chosen provider. Pass `fields` as a high-level abstract list ({ type, label, required }); we map each entry to the provider\'s native field schema. Supported types: name, email, text, textarea, phone, url, number, checkbox, select, date. Currently writes to WPForms, Gravity Forms, and Fluent Forms; other providers return a clear error pointing to their plugin UI.',
+        'Create a new form on the chosen provider. Pass `fields` as a high-level abstract list ({ type, label, required }); we map each entry to the provider\'s native field schema. Supported types: name, email, text, textarea, phone, url, number, checkbox, select, date. Currently writes to WPForms, Gravity Forms, Fluent Forms, and Formidable Forms; other providers return a clear error pointing to their plugin UI.',
         'webchanges-connector'
     ),
     'category' => 'webchanges-forms',
     'input_schema' => [
         'type' => 'object',
         'properties' => [
-            'provider' => ['type' => 'string', 'enum' => ['wpforms', 'gravity', 'fluent']],
+            'provider' => ['type' => 'string', 'enum' => ['wpforms', 'gravity', 'fluent', 'formidable']],
             'title' => ['type' => 'string'],
             'fields' => [
                 'type' => 'array',
@@ -226,6 +226,18 @@ webchanges_connector_register_ability('forms-create-form', [
                 'provider' => 'fluent',
                 'form_id' => $form_id,
                 'shortcode' => sprintf('[fluentform id="%d"]', $form_id),
+            ];
+        }
+
+        if ($provider === 'formidable') {
+            $res = webchanges_connector_forms_formidable_create($title, $fields, $notify);
+            if (!empty($res['error'])) {
+                return ['success' => false, 'error' => (string) $res['error']];
+            }
+            return [
+                'provider' => 'formidable',
+                'form_id' => (int) $res['form_id'],
+                'shortcode' => (string) $res['shortcode'],
             ];
         }
 

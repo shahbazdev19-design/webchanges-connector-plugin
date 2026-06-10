@@ -331,6 +331,7 @@ add_action('wp_abilities_api_init', static function () {
         'forms/list-forms.php',
         'forms/get-form.php',
         'forms/create-form.php',
+        'forms/update-form.php',
         'forms/list-submissions.php',
     ] as $rel) {
         require_once $dir . $rel;
