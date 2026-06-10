@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Plugin Name: Webchanges Connector
  * Plugin URI: https://www.searchactions.com/
  * Description: Connect WordPress to any MCP-compatible AI client so agents can manage content, blocks, media, SEO, taxonomies, menus, users, WooCommerce, ACF, and site settings over the Model Context Protocol.
- * Version: 0.4.2
+ * Version: 0.6.0
  * Requires at least: 6.5
  * Requires PHP: 8.0
  * Author: Webchanges
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit();
 }
 
-define('WEBCHANGES_CONNECTOR_VERSION', '0.4.2');
+define('WEBCHANGES_CONNECTOR_VERSION', '0.6.0');
 define('WEBCHANGES_CONNECTOR_FILE', __FILE__);
 define('WEBCHANGES_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 define('WEBCHANGES_CONNECTOR_URL', plugin_dir_url(__FILE__));
