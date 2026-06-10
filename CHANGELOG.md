@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0 - 2026-06-11
+
+- Consolidated build + complete Formidable (create/edit, settings, notifications with conditional routing); supersedes the 0.5.0 manual build
+
 ## 0.4.2 - 2026-06-07
 
 - Add webchanges/verify-change ability (powers the 'change landed' confirmation)
