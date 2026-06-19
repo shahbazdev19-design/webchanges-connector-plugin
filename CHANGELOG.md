@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2 - 2026-06-20
+
+- Add media-compress: in-place image recompression for web (Ahrefs oversized fixes) — preserves format/filename/URL, EXIF+strip, quality+downscale, PNG quantize/flag, -scaled-safe, verify
+
 ## 0.6.1 - 2026-06-20
 
 - Add Yoast Search Appearance settings abilities (seo-yoast-get-settings / seo-yoast-update-settings)
