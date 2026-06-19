@@ -55,6 +55,7 @@ require_once WEBCHANGES_CONNECTOR_DIR . 'includes/helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/bricks-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/elementor-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/forms-helpers.php';
+require_once WEBCHANGES_CONNECTOR_DIR . 'includes/yoast-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/image-gen-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/stock-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/skills-helpers.php';
@@ -349,6 +350,12 @@ add_action('wp_abilities_api_init', static function () {
         ] as $rel) {
             require_once $dir . $rel;
         }
+    }
+
+    // Yoast SEO bridge — search-appearance settings. Only when Yoast is active.
+    if (defined('WPSEO_VERSION')) {
+        require_once $dir . 'seo/yoast-get-settings.php';
+        require_once $dir . 'seo/yoast-update-settings.php';
     }
 
     // ACF bridge — only registered when ACF (or ACF Pro) is active.
