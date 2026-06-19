@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 - 2026-06-20
+
+- Add Yoast Search Appearance settings abilities (seo-yoast-get-settings / seo-yoast-update-settings)
+
 ## 0.6.0 - 2026-06-11
 
 - Consolidated build + complete Formidable (create/edit, settings, notifications with conditional routing); supersedes the 0.5.0 manual build
