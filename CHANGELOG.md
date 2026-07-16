@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.3 - 2026-07-17
+
+- Plugin Check cleanup (0 errors/0 warnings) + pre-release security hardening: secret-file read denylist, SSRF redirect/guard fixes, SVG stored-XSS fix, disable MCP default server, WP 6.9 requirement, readme.txt + composer.json
+
 ## 0.6.2 - 2026-06-20
 
 - Add media-compress: in-place image recompression for web (Ahrefs oversized fixes) — preserves format/filename/URL, EXIF+strip, quality+downscale, PNG quantize/flag, -scaled-safe, verify
