@@ -37,21 +37,24 @@ webchanges_connector_register_ability('read-file', [
         if ($resolved === null) {
             return new \WP_Error('path_escape', 'Path resolves outside the project root.');
         }
+        if (webchanges_connector_is_secret_file($resolved)) {
+            return new \WP_Error('forbidden_secret', 'Refusing to read a credential/secret file (wp-config.php, .env, private keys, etc.).');
+        }
         if (!is_file($resolved)) {
             return new \WP_Error('not_found', sprintf('File not found: %s', $resolved));
         }
         $size = (int) filesize($resolved);
         $offset = max(0, (int) ($input['offset'] ?? 0));
         $length = (int) ($input['length'] ?? 0);
-        $handle = fopen($resolved, 'rb');
+        $handle = fopen($resolved, 'rb'); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- partial/offset read; WP_Filesystem has no streaming/partial-read API
         if (!$handle) {
             return new \WP_Error('read_failed', 'Failed to open file.');
         }
         if ($offset > 0) {
             fseek($handle, $offset);
         }
-        $content = $length > 0 ? (string) fread($handle, $length) : (string) stream_get_contents($handle);
-        fclose($handle);
+        $content = $length > 0 ? (string) fread($handle, $length) : (string) stream_get_contents($handle); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- partial/offset read; WP_Filesystem has no streaming/partial-read API
+        fclose($handle); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- partial/offset read; WP_Filesystem has no streaming/partial-read API
         return [
             'path' => $resolved,
             'size_bytes' => $size,

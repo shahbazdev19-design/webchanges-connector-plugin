@@ -38,7 +38,7 @@ webchanges_connector_register_ability('bricks-get-elements', [
         'properties' => [
             'post_id' => ['type' => 'integer'],
             'area' => ['type' => 'string'],
-            'meta_key' => ['type' => 'string'],
+            'meta_key' => ['type' => 'string'], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- output-schema array key named "meta_key", not a query argument
             'is_bricks' => ['type' => 'boolean'],
             'element_count' => ['type' => 'integer'],
             'elements' => ['type' => 'array'],
@@ -58,7 +58,7 @@ webchanges_connector_register_ability('bricks-get-elements', [
         $out = [
             'post_id' => $post_id,
             'area' => $area,
-            'meta_key' => webchanges_connector_bricks_meta_key($area),
+            'meta_key' => webchanges_connector_bricks_meta_key($area), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- result array key named "meta_key", not a query argument
             'is_bricks' => (string) get_post_meta($post_id, '_bricks_editor_mode', true) === 'bricks',
             'element_count' => count($elements),
             'elements' => $elements,

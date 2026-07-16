@@ -165,9 +165,9 @@ function webchanges_connector_forms_list(string $provider): array
         case 'fluent':
             global $wpdb;
             $table = $wpdb->prefix . 'fluentform_forms';
-            $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+            $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table; // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- third-party Fluent Forms table (no WP API); query is prepared; on-demand read, caching N/A
             if ($exists) {
-                $results = $wpdb->get_results("SELECT id, title, created_at, updated_at FROM $table ORDER BY id ASC");
+                $results = $wpdb->get_results("SELECT id, title, created_at, updated_at FROM $table ORDER BY id ASC"); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party Fluent Forms table; only a trusted $wpdb->prefix table name is interpolated, no user input in the query; on-demand read, caching N/A
                 foreach ((array) $results as $r) {
                     $rows[] = [
                         'id' => (int) $r->id,
@@ -265,7 +265,7 @@ function webchanges_connector_forms_get(string $provider, int $form_id): ?array
         case 'fluent':
             global $wpdb;
             $table = $wpdb->prefix . 'fluentform_forms';
-            $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $form_id), ARRAY_A);
+            $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $form_id), ARRAY_A); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party Fluent Forms table; table name is a trusted identifier, the id is prepared; on-demand read, caching N/A
             return $row ?: null;
         case 'cf7':
             $post = get_post($form_id);
@@ -410,6 +410,7 @@ function webchanges_connector_forms_formidable_set_email_action(int $form_id, ar
         'bcc' => (string) ($spec['bcc'] ?? ''),
         'reply_to' => (string) ($spec['reply_to'] ?? ''),
         'from' => (string) ($spec['from'] ?? '[admin_email]'),
+        /* translators: %s is the form title */
         'email_subject' => (string) ($spec['subject'] ?? sprintf(__('New %s submission', 'webchanges-connector'), $title)),
         'email_message' => (string) ($spec['message'] ?? '[default-message]'),
         'inc_user_info' => '',

@@ -414,7 +414,7 @@ function webchanges_stock_import_url(string $download_url, string $alt, int $par
         'post_excerpt' => '',
     ]);
     if (is_wp_error($attachment_id)) {
-        @unlink($tmp);
+        wp_delete_file($tmp);
         return ['success' => false, 'error' => $attachment_id->get_error_message()];
     }
     if ($alt !== '') {

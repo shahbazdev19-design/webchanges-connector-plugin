@@ -36,8 +36,8 @@ function webchanges_connector_handle_abilities_admin()
         return new \WP_Error('forbidden', __('You do not have permission.', 'webchanges-connector'));
     }
     check_admin_referer('webchanges_abilities');
-    $known = array_map('strval', (array) ($_POST['known'] ?? []));
-    $enabled = array_map('strval', (array) ($_POST['enabled'] ?? []));
+    $known = array_map('strval', (array) wp_unslash($_POST['known'] ?? [])); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- array/JSON input, unslashed; validated below against the ability catalog
+    $enabled = array_map('strval', (array) wp_unslash($_POST['enabled'] ?? [])); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- array/JSON input, unslashed; validated below against the ability catalog
     $disabled = array_values(array_diff($known, $enabled));
     webchanges_connector_set_disabled_abilities($disabled);
     // High-risk abilities are opt-in: persist exactly which dangerous ones the

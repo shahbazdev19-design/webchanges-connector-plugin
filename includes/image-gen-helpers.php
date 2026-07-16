@@ -568,7 +568,7 @@ function webchanges_image_gen_to_media(string $b64, string $mime, string $filena
     $overrides = ['test_form' => false, 'mimes' => ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'webp' => 'image/webp', 'gif' => 'image/gif']];
     $sideloaded = wp_handle_sideload($file_array, $overrides);
     if (!empty($sideloaded['error'])) {
-        @unlink($tmp_path);
+        wp_delete_file($tmp_path);
         return ['success' => false, 'error' => $sideloaded['error']];
     }
 

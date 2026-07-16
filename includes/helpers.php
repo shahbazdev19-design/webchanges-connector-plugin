@@ -149,6 +149,12 @@ function webchanges_connector_project_root(): string
  */
 function webchanges_connector_resolve_path(string $path): ?string
 {
+    // Reject embedded null bytes outright (PHP FS calls also reject them, but
+    // fail closed here rather than rely on that).
+    if (strpos($path, "\0") !== false) {
+        return null;
+    }
+
     $root = webchanges_connector_project_root();
 
     $root_real = realpath($root);
@@ -189,6 +195,46 @@ function webchanges_connector_resolve_path(string $path): ?string
     }
 
     return $candidate;
+}
+
+/**
+ * True for files that must never be read/listed through the filesystem
+ * abilities regardless of location inside the project root — credential and
+ * secret-bearing files. read-file/list-directory are always-on (not behind the
+ * dangerous opt-in), so a caller must not be able to exfiltrate wp-config.php
+ * salts (which key the at-rest encryption of every stored API token) or a
+ * dropped .env / private key. Matched on basename, case-insensitively.
+ */
+function webchanges_connector_is_secret_file(string $path): bool
+{
+    $base = strtolower(basename($path));
+
+    $exact = [
+        'wp-config.php',
+        '.htpasswd',
+        '.htaccess',
+        'auth.json',
+        '.git-credentials',
+        '.npmrc',
+        'id_rsa',
+        'id_dsa',
+        'id_ecdsa',
+        'id_ed25519',
+    ];
+    if (in_array($base, $exact, true)) {
+        return true;
+    }
+    // .env and any variant (.env.local, .env.production, …).
+    if (strncmp($base, '.env', 4) === 0) {
+        return true;
+    }
+    // Private-key / keystore extensions.
+    foreach (['.pem', '.key', '.ppk', '.p12', '.pfx', '.keystore', '.jks'] as $ext) {
+        if (substr($base, -strlen($ext)) === $ext) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -554,7 +600,7 @@ function webchanges_connector_ability_catalog(): array
  */
 function webchanges_connector_handle_admin_actions(): void
 {
-    $page = $_GET['page'] ?? null;
+    $page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : null; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only page-slug check to decide whether this handler runs; state-changing branches below verify a nonce
     if ($page !== WEBCHANGES_CONNECTOR_SLUG) {
         return;
     }
@@ -574,7 +620,7 @@ function webchanges_connector_handle_admin_actions(): void
                 update_option('webchanges_connector_enabled', false, false);
                 break;
             case 'revoke_password':
-                $uuid = isset($_POST['uuid']) ? (string) $_POST['uuid'] : '';
+                $uuid = isset($_POST['uuid']) ? sanitize_text_field(wp_unslash($_POST['uuid'])) : '';
                 if ($uuid !== '' && class_exists('WP_Application_Passwords')) {
                     \WP_Application_Passwords::delete_application_password(get_current_user_id(), $uuid);
                 }

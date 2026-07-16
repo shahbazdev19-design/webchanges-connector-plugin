@@ -8,9 +8,13 @@ if (!defined('ABSPATH')) {
 
 webchanges_connector_register_ability('execute-php', [
     'label' => __('Execute PHP', 'webchanges-connector'),
-    'description' => __(
-        'Run arbitrary PHP code inside WordPress. Use this only for operations that no purpose-built ability covers. Code runs with full WordPress context (db, options, hooks, current user = the connection user). Capped at ' . WEBCHANGES_CONNECTOR_MAX_EXECUTION_TIME . ' seconds. Output is whatever the last expression returns OR the buffered echo output.',
-        'webchanges-connector'
+    'description' => sprintf(
+        /* translators: %d is the max execution time in seconds */
+        __(
+            'Run arbitrary PHP code inside WordPress. Use this only for operations that no purpose-built ability covers. Code runs with full WordPress context (db, options, hooks, current user = the connection user). Capped at %d seconds. Output is whatever the last expression returns OR the buffered echo output.',
+            'webchanges-connector'
+        ),
+        WEBCHANGES_CONNECTOR_MAX_EXECUTION_TIME
     ),
     'category' => 'webchanges-code',
     'input_schema' => [
@@ -39,13 +43,13 @@ webchanges_connector_register_ability('execute-php', [
     ],
     'execute_callback' => static function (array $input) {
         $timeout = min(WEBCHANGES_CONNECTOR_MAX_EXECUTION_TIME, max(1, (int) ($input['timeout'] ?? WEBCHANGES_CONNECTOR_MAX_EXECUTION_TIME)));
-        @set_time_limit($timeout);
+        @set_time_limit($timeout); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- intentional time cap for the code-execution ability
         $start = microtime(true);
         ob_start();
         $return_value = null;
         $error = null;
         try {
-            $return_value = eval((string) $input['code']);
+            $return_value = eval((string) $input['code']); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Found -- execute-php intentionally evaluates admin-supplied code; gated by manage_options + connector auth
         } catch (\Throwable $e) {
             $error = $e;
         }

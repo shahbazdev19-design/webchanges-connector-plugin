@@ -35,7 +35,7 @@ webchanges_connector_register_ability('seo-list-redirects', [
     'execute_callback' => static function (array $input): array {
         global $wpdb;
         $table = $wpdb->prefix . 'rank_math_redirections';
-        $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+        $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
         if (!$exists) {
             return ['success' => false, 'error' => sprintf('Table %s does not exist. Is Rank Math\'s redirection module active?', $table)];
         }
@@ -60,11 +60,11 @@ webchanges_connector_register_ability('seo-list-redirects', [
         }
         $where_sql = implode(' AND ', $where);
 
-        $count_sql = "SELECT COUNT(*) FROM $table WHERE $where_sql";
-        $total = (int) $wpdb->get_var($params === [] ? $count_sql : $wpdb->prepare($count_sql, ...$params));
+        $count_sql = "SELECT COUNT(*) FROM $table WHERE $where_sql"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
+        $total = (int) $wpdb->get_var($params === [] ? $count_sql : $wpdb->prepare($count_sql, ...$params)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
 
-        $sql = "SELECT id, sources, url_to, header_code, hits, status, created, updated, last_accessed FROM $table WHERE $where_sql ORDER BY id DESC LIMIT %d OFFSET %d";
-        $rows = $wpdb->get_results($wpdb->prepare($sql, ...array_merge($params, [$per_page, $offset])), ARRAY_A);
+        $sql = "SELECT id, sources, url_to, header_code, hits, status, created, updated, last_accessed FROM $table WHERE $where_sql ORDER BY id DESC LIMIT %d OFFSET %d"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
+        $rows = $wpdb->get_results($wpdb->prepare($sql, ...array_merge($params, [$per_page, $offset])), ARRAY_A); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
 
         $out = [];
         foreach ((array) $rows as $row) {

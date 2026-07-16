@@ -60,7 +60,7 @@ webchanges_connector_register_ability('sideload-media', [
             return $tmp;
         }
 
-        $url_basename = (string) basename((string) parse_url($url, PHP_URL_PATH) ?: '');
+        $url_basename = (string) basename((string) wp_parse_url($url, PHP_URL_PATH) ?: '');
         $url_ext = strtolower((string) pathinfo($url_basename, PATHINFO_EXTENSION));
         if (!empty($input['filename'])) {
             $filename = sanitize_file_name((string) $input['filename']);
@@ -94,7 +94,7 @@ webchanges_connector_register_ability('sideload-media', [
         ]);
 
         if (is_wp_error($attachment_id)) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return $attachment_id;
         }
 

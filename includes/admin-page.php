@@ -573,7 +573,7 @@ function webchanges_connector_render_admin_page(): void
                 <div class="wc-logo">W</div>
                 <div>
                     <div class="wc-brand-title"><?php esc_html_e('Webchanges Connector', 'webchanges-connector'); ?></div>
-                    <div class="wc-brand-sub"><?php printf(esc_html__('v%s · MCP endpoint for AI agents', 'webchanges-connector'), esc_html(WEBCHANGES_CONNECTOR_VERSION)); ?></div>
+                    <div class="wc-brand-sub"><?php /* translators: %s is the plugin version */ printf(esc_html__('v%s · MCP endpoint for AI agents', 'webchanges-connector'), esc_html(WEBCHANGES_CONNECTOR_VERSION)); ?></div>
                 </div>
             </div>
             <div class="wc-status-pill <?php echo $enabled ? 'on' : ''; ?>">
@@ -890,7 +890,7 @@ function webchanges_connector_render_admin_page(): void
         <?php endif; ?>
 
         <details class="wc-card wc-card-collapsible wc-mt-4">
-            <summary class="wc-card-title"><?php printf(esc_html__('Registered abilities · %d', 'webchanges-connector'), (int) count($abilities_ours)); ?></summary>
+            <summary class="wc-card-title"><?php /* translators: %d is the number of registered abilities */ printf(esc_html__('Registered abilities · %d', 'webchanges-connector'), (int) count($abilities_ours)); ?></summary>
 
             <div class="wc-stat-grid" style="margin-bottom:18px;">
                 <div class="wc-stat"><div class="wc-stat-value"><?php echo (int) count($abilities_ours); ?></div><div class="wc-stat-label"><?php esc_html_e('Abilities live', 'webchanges-connector'); ?></div></div>
@@ -1035,7 +1035,7 @@ function webchanges_connector_render_admin_page(): void
 
     <script>
     (function () {
-        var configs = <?php echo $enabled ? $configs_json : '{}'; ?>;
+        var configs = <?php echo $enabled ? $configs_json : '{}'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode() output embedded in a <script> context ?>;
         var client = 'claude-code';
         function render() {
             var cfg = configs[client]; if (!cfg) return;
@@ -1112,7 +1112,7 @@ function webchanges_connector_handle_image_gen_save()
     // For API keys: empty input = keep existing (don't clobber); literal "clear" = wipe.
     foreach (['openai_api_key', 'gemini_api_key', 'replicate_api_key'] as $k) {
         if (!array_key_exists($k, $_POST)) continue;
-        $raw = trim((string) wp_unslash($_POST[$k]));
+        $raw = trim((string) wp_unslash($_POST[$k])); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- API key value; unslashed but intentionally not sanitize_text_field'd (would corrupt keys); stored encrypted at rest
         if ($raw === '') {
             // Skip — keep existing value.
             continue;
@@ -1154,7 +1154,7 @@ function webchanges_connector_handle_stock_save()
     // API keys: empty input = keep existing; literal "clear" = wipe.
     foreach (['pexels_api_key', 'unsplash_access_key', 'pixabay_api_key'] as $k) {
         if (!array_key_exists($k, $_POST)) continue;
-        $raw = trim((string) wp_unslash($_POST[$k]));
+        $raw = trim((string) wp_unslash($_POST[$k])); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- API key value; unslashed but intentionally not sanitize_text_field'd (would corrupt keys); stored encrypted at rest
         if ($raw === '') {
             continue;
         }
@@ -1187,7 +1187,7 @@ function webchanges_connector_handle_create_password()
         return new \WP_Error('not_available', __('Application passwords are not available on this WordPress install.', 'webchanges-connector'));
     }
     $user_id = get_current_user_id();
-    $raw = isset($_POST['password_name']) ? trim((string) $_POST['password_name']) : '';
+    $raw = isset($_POST['password_name']) ? sanitize_text_field(wp_unslash($_POST['password_name'])) : '';
     $name = $raw !== '' ? 'Webchanges — ' . $raw : 'Webchanges';
     $existing = \WP_Application_Passwords::get_user_application_passwords($user_id);
     $names = array_column($existing, 'name');
@@ -1274,7 +1274,11 @@ function webchanges_connector_build_client_configs(string $rest_url, string $use
     return [
         'claude-code' => [
             'code' => $claude_code_cmd,
-            'hint' => __('Run this command in your terminal. Then start a new Claude Code session — the abilities appear under <code>mcp__' . esc_html($mcp_name) . '__</code>.', 'webchanges-connector'),
+            'hint' => sprintf(
+                /* translators: %s is the MCP server name */
+                __('Run this command in your terminal. Then start a new Claude Code session — the abilities appear under <code>mcp__%s__</code>.', 'webchanges-connector'),
+                esc_html($mcp_name)
+            ),
         ],
         'claude-desktop' => [
             'code' => $mcp_servers_json,

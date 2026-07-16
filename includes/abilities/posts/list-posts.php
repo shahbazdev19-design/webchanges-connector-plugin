@@ -89,11 +89,11 @@ webchanges_connector_register_ability('list-posts', [
                 $tax_query[] = ['taxonomy' => (string) $tax, 'field' => 'term_id', 'terms' => array_map('intval', (array) $terms)];
             }
             if ($tax_query) {
-                $args['tax_query'] = $tax_query;
+                $args['tax_query'] = $tax_query; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- required taxonomy filter for this listing ability
             }
         }
         if (!empty($input['meta_filter']) && is_array($input['meta_filter'])) {
-            $args['meta_query'] = $input['meta_filter'];
+            $args['meta_query'] = $input['meta_filter']; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- required meta filter for this listing ability
         }
 
         $q = new \WP_Query($args);

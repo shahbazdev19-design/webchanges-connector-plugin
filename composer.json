@@ -1,0 +1,14 @@
+{
+    "name": "webchanges/webchanges-connector",
+    "description": "Connect WordPress to any MCP-compatible AI client so agents can manage content, blocks, media, SEO, forms, and site settings over the Model Context Protocol.",
+    "type": "wordpress-plugin",
+    "license": "AGPL-3.0-or-later",
+    "homepage": "https://www.searchactions.com/",
+    "require": {
+        "php": ">=8.0"
+    },
+    "config": {
+        "optimize-autoloader": true
+    },
+    "_comment": "The vendor/ directory (Jetpack autoloader, Plugin Update Checker, MCP Adapter) is committed and bundled with releases. Do NOT run `composer install` / `composer update` against this file — it would clobber the pinned, Jetpack-autoloaded vendor tree the plugin ships with."
+}

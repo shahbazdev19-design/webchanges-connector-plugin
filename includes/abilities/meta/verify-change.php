@@ -81,10 +81,19 @@ webchanges_connector_register_ability('verify-change', [
             if ($url === '' && $post_id > 0) {
                 $url = (string) get_permalink($post_id);
             }
+            // SSRF guard: a caller-supplied `url` must resolve to a public
+            // http(s) host. Without this, verify-change is a blind-SSRF oracle
+            // (its landed:true/false leaks whether an internal endpoint contains
+            // a probe string). redirection => 0 stops a public URL from being
+            // redirected to an internal target after the check.
+            if ($url !== '' && !webchanges_connector_is_safe_remote_url($url)) {
+                return ['landed' => false, 'where' => 'none', 'sample' => $sample, 'warning' => 'refused to fetch a non-public or non-http(s) url'];
+            }
             if ($url !== '') {
                 $bust = add_query_arg('_wcv', (string) time(), $url);
                 $resp = wp_remote_get($bust, [
                     'timeout' => 15,
+                    'redirection' => 0,
                     'headers' => ['Cache-Control' => 'no-cache'],
                     'sslverify' => true,
                     'user-agent' => 'WebchangesConnector-verify',

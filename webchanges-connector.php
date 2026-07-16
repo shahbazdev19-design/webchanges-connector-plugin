@@ -7,7 +7,7 @@ declare(strict_types=1);
  * Plugin URI: https://www.searchactions.com/
  * Description: Connect WordPress to any MCP-compatible AI client so agents can manage content, blocks, media, SEO, taxonomies, menus, users, WooCommerce, ACF, and site settings over the Model Context Protocol.
  * Version: 0.6.2
- * Requires at least: 6.5
+ * Requires at least: 6.9
  * Requires PHP: 8.0
  * Author: Webchanges
  * License: AGPL-3.0-or-later
@@ -106,11 +106,21 @@ if (!webchanges_connector_is_enabled()) {
     return;
 }
 
+// Do NOT let the MCP Adapter auto-create its shared `mcp-adapter-default-server`.
+// Calling McpAdapter::instance() (below) triggers that default server, which
+// comes up at the `read` capability — any logged-in Subscriber could then hit
+// /wp-json/mcp/mcp-adapter-default-server and enumerate the entire ability
+// catalogue + input/output schemas (and learn whether execute-php/filesystem
+// is enabled). Actual execution is still blocked by each ability's
+// manage_options permission_callback, but the enumeration itself defeats the
+// perimeter we advertise. We register our own dedicated, manage_options-gated
+// server below and support only that endpoint, so the default one has no use
+// here. (A plugin that genuinely needs the shared server — e.g. Novamira —
+// registers its own dedicated server too and is unaffected by this.)
+add_filter('mcp_adapter_create_default_server', '__return_false');
+
 // Register our own dedicated MCP server at /wp-json/webchanges/v1/mcp.
-// This is the endpoint advertised in the admin page and the only one we
-// support. The shared `mcp-adapter-default-server` endpoint (used by
-// Novamira and other consumers of the MCP Adapter library) is left alone:
-// if it exists we coexist with it, if it doesn't our server still works.
+// This is the endpoint advertised in the admin page and the only one we support.
 add_action('mcp_adapter_init', static function ($adapter) {
     if (!$adapter instanceof \WP\MCP\Core\McpAdapter) {
         return;

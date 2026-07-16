@@ -409,6 +409,15 @@ function webchanges_skills_run(string $slug, array $inputs = []): array
             return ['ok' => false, 'ran' => $ran, 'outputs' => $ctx['steps'], 'error' => sprintf('Ability "%s" is not registered on this site.', $ability_name)];
         }
         $params = is_array($step['params'] ?? null) ? webchanges_skills_resolve($step['params'], $ctx) : [];
+        // Defense in depth: re-check the target ability's own permission gate
+        // before running it (parity with meta/execute-ability), so a narrowed
+        // per-ability authorization can't be sidestepped via a skill macro.
+        if (method_exists($ability, 'check_permissions')) {
+            $allowed = $ability->check_permissions($params);
+            if (is_wp_error($allowed) || $allowed === false) {
+                return ['ok' => false, 'ran' => $ran, 'outputs' => $ctx['steps'], 'error' => sprintf('Step "%s": permission denied for %s.', $id, $ability_name)];
+            }
+        }
         try {
             $result = method_exists($ability, 'execute') ? $ability->execute($params) : null;
         } catch (\Throwable $e) {

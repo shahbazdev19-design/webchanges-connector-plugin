@@ -69,7 +69,7 @@ webchanges_connector_register_ability('seo-get-meta', [
                 $val = get_post_meta($post_id, $k, true);
                 $schemas[] = [
                     'type' => $type,
-                    'meta_key' => $k,
+                    'meta_key' => $k, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- required lookup for this ability
                     'data' => $val,
                 ];
             }

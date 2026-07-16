@@ -58,6 +58,9 @@ webchanges_connector_register_ability('list-directory', [
             : new \FilesystemIterator($resolved, \FilesystemIterator::SKIP_DOTS);
         foreach ($iter as $info) {
             /** @var \SplFileInfo $info */
+            if ($info->isFile() && webchanges_connector_is_secret_file($info->getFilename())) {
+                continue; // hide credential/secret files from listings
+            }
             $entries[] = [
                 'name' => $recursive ? wp_normalize_path(str_replace($resolved, '', $info->getPathname())) : $info->getFilename(),
                 'type' => $info->isDir() ? 'dir' : ($info->isLink() ? 'symlink' : 'file'),

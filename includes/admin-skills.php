@@ -41,7 +41,7 @@ function webchanges_connector_handle_skills_admin()
 
     if ($action === 'save') {
         $macro = null;
-        $macro_raw = trim((string) wp_unslash($_POST['macro'] ?? ''));
+        $macro_raw = trim((string) wp_unslash($_POST['macro'] ?? '')); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- rich body (JSON) unslashed; validated by json_decode below
         if ($macro_raw !== '') {
             $decoded = json_decode($macro_raw, true);
             if (!is_array($decoded)) {
@@ -50,10 +50,10 @@ function webchanges_connector_handle_skills_admin()
             $macro = $decoded;
         }
         $data = [
-            'slug' => sanitize_title((string) ($_POST['slug'] ?? '')),
+            'slug' => sanitize_title((string) wp_unslash($_POST['slug'] ?? '')),
             'name' => sanitize_text_field((string) wp_unslash($_POST['name'] ?? '')),
             'description' => sanitize_text_field((string) wp_unslash($_POST['description'] ?? '')),
-            'body' => (string) wp_unslash($_POST['body'] ?? ''),
+            'body' => (string) wp_unslash($_POST['body'] ?? ''), // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- rich body (markdown) unslashed; sanitized downstream by its own validator
         ];
         if ($macro !== null) {
             $data['macro'] = $macro;
@@ -63,15 +63,15 @@ function webchanges_connector_handle_skills_admin()
     }
 
     if ($action === 'upload') {
-        if (empty($_FILES['md']['tmp_name']) || !is_uploaded_file($_FILES['md']['tmp_name'])) {
+        if (empty($_FILES['md']['tmp_name']) || !is_uploaded_file($_FILES['md']['tmp_name'])) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- $_FILES tmp_name is a server-generated path handled by the WP upload flow
             return new \WP_Error('no_file', __('No file was uploaded.', 'webchanges-connector'));
         }
-        $content = (string) file_get_contents($_FILES['md']['tmp_name']);
+        $content = (string) file_get_contents($_FILES['md']['tmp_name']); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- $_FILES tmp_name is a server-generated path handled by the WP upload flow
         if ($content === '') {
             return new \WP_Error('empty', __('The uploaded file was empty.', 'webchanges-connector'));
         }
         $parsed = webchanges_skills_parse_frontmatter($content);
-        $fallback = pathinfo((string) ($_FILES['md']['name'] ?? 'skill'), PATHINFO_FILENAME);
+        $fallback = pathinfo(sanitize_file_name((string) wp_unslash($_FILES['md']['name'] ?? 'skill')), PATHINFO_FILENAME);
         $slug = sanitize_title((string) ($parsed['meta']['slug'] ?? $parsed['meta']['name'] ?? $fallback));
         $res = webchanges_skills_save([
             'slug' => $slug,
@@ -85,13 +85,13 @@ function webchanges_connector_handle_skills_admin()
     }
 
     if ($action === 'delete') {
-        $res = webchanges_skills_delete((string) ($_POST['slug'] ?? ''));
+        $res = webchanges_skills_delete(sanitize_title((string) wp_unslash($_POST['slug'] ?? '')));
         return is_wp_error($res) ? $res : 'deleted';
     }
 
     if ($action === 'toggle') {
-        $enable = ((string) ($_POST['enable'] ?? '')) === '1';
-        webchanges_skills_toggle((string) ($_POST['slug'] ?? ''), $enable);
+        $enable = sanitize_text_field((string) wp_unslash($_POST['enable'] ?? '')) === '1';
+        webchanges_skills_toggle(sanitize_title((string) wp_unslash($_POST['slug'] ?? '')), $enable);
         return $enable ? 'enabled' : 'disabled';
     }
 
@@ -109,7 +109,7 @@ function webchanges_connector_render_skills_page(): void
     $bundled = array_filter($all, static fn($s) => ($s['source'] ?? '') === 'bundled');
     $custom = array_filter($all, static fn($s) => ($s['source'] ?? '') === 'custom');
 
-    $edit = isset($_GET['edit']) ? sanitize_title((string) $_GET['edit']) : '';
+    $edit = isset($_GET['edit']) ? sanitize_title((string) wp_unslash($_GET['edit'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only edit-target selector; page is gated by current_user_can('manage_options') and the connector's own auth
     $editing = ($edit !== '' && isset($custom[$edit])) ? $custom[$edit] : null;
     $base_url = admin_url('admin.php?page=webchanges-connector-skills');
 

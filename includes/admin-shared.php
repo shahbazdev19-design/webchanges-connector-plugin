@@ -21,13 +21,13 @@ function webchanges_connector_admin_theme_css(): string
     ob_start();
     ?>
     <style>
-        <?php echo $body; ?> { background: #050507; }
-        <?php echo $body; ?> #wpcontent,
-        <?php echo $body; ?> #wpbody-content { background: transparent; }
-        <?php echo $body; ?> #wpbody-content { padding-bottom: 0; }
-        <?php echo $body; ?> #wpfooter { display: none; }
-        <?php echo $body; ?> .notice,
-        <?php echo $body; ?> .update-nag { display: none !important; }
+        <?php echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted CSS selector built from sanitize_html_class( screen id ); no user input ?> { background: #050507; }
+        <?php echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted CSS selector built from sanitize_html_class( screen id ); no user input ?> #wpcontent,
+        <?php echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted CSS selector built from sanitize_html_class( screen id ); no user input ?> #wpbody-content { background: transparent; }
+        <?php echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted CSS selector built from sanitize_html_class( screen id ); no user input ?> #wpbody-content { padding-bottom: 0; }
+        <?php echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted CSS selector built from sanitize_html_class( screen id ); no user input ?> #wpfooter { display: none; }
+        <?php echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted CSS selector built from sanitize_html_class( screen id ); no user input ?> .notice,
+        <?php echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted CSS selector built from sanitize_html_class( screen id ); no user input ?> .update-nag { display: none !important; }
 
         .wc-shell {
             --wc-bg: #050507;

@@ -68,7 +68,10 @@ webchanges_connector_register_ability('image-edit', [
             if (!webchanges_connector_is_safe_remote_url((string) $input['source_url'])) {
                 return ['success' => false, 'error' => 'refusing to fetch a non-public or non-http(s) source_url'];
             }
-            $fetched = wp_remote_get((string) $input['source_url'], ['timeout' => 30]);
+            // redirection => 0: the guard validated THIS host resolves to a
+            // public IP; following redirects would let an attacker 302 us to an
+            // internal target (e.g. 169.254.169.254) the guard never saw.
+            $fetched = wp_remote_get((string) $input['source_url'], ['timeout' => 30, 'redirection' => 0]);
             if (is_wp_error($fetched) || (int) wp_remote_retrieve_response_code($fetched) !== 200) {
                 return ['success' => false, 'error' => 'Failed to fetch source_url'];
             }

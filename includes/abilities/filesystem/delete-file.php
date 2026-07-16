@@ -39,7 +39,7 @@ webchanges_connector_register_ability('delete-file', [
         if (is_dir($resolved)) {
             return new \WP_Error('is_directory', 'Refusing to delete a directory.');
         }
-        $ok = @unlink($resolved);
+        $ok = @unlink($resolved); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- return value needed to report success; wp_delete_file returns void
         if (!$ok) {
             return new \WP_Error('delete_failed', 'Failed to delete file.');
         }

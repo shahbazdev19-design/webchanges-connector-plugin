@@ -72,23 +72,30 @@ webchanges_connector_register_ability('media-replace-file', [
         if ($has_content) {
             $decoded = base64_decode((string) $input['content'], true);
             if ($decoded === false) {
-                @unlink($tmp);
+                wp_delete_file($tmp);
                 return new \WP_Error('bad_base64', 'content is not valid base64.');
             }
             if (file_put_contents($tmp, $decoded) === false) {
-                @unlink($tmp);
+                wp_delete_file($tmp);
                 return new \WP_Error('write_failed', 'Could not write temp file.');
             }
         } else {
             $url = (string) $input['source_url'];
+            // SSRF guard (parity with sideload-media / stock-import / image-gen):
+            // only fetch public http(s) URLs — blocks localhost, private ranges,
+            // and the 169.254.169.254 cloud-metadata address.
+            if (!webchanges_connector_is_safe_remote_url($url)) {
+                wp_delete_file($tmp);
+                return new \WP_Error('unsafe_url', 'refusing to fetch a non-public or non-http(s) source_url');
+            }
             $timeout = (int) ($input['timeout'] ?? 30);
             $downloaded = download_url($url, $timeout);
             if (is_wp_error($downloaded)) {
-                @unlink($tmp);
+                wp_delete_file($tmp);
                 return $downloaded;
             }
             // Move the downloaded file into our temp path.
-            @rename($downloaded, $tmp);
+            @rename($downloaded, $tmp); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- atomic move of a temp file we just downloaded; WP_Filesystem::move needs init and isn't atomic
         }
 
         // Sniff the new file's extension via MIME.
@@ -97,7 +104,11 @@ webchanges_connector_register_ability('media-replace-file', [
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mime = $finfo ? (string) finfo_file($finfo, $tmp) : '';
             if ($finfo) finfo_close($finfo);
-            $mime_to_ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif', 'image/svg+xml' => 'svg', 'application/pdf' => 'pdf'];
+            // NOTE: svg is intentionally excluded — this ability raw-copies the
+            // file into uploads/ without going through WP's mime sanitiser, so
+            // an SVG could carry <script> (stored XSS). An SVG upload therefore
+            // falls back to the original extension and is never served as .svg.
+            $mime_to_ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif', 'application/pdf' => 'pdf'];
             if (isset($mime_to_ext[$mime])) {
                 $new_ext = $mime_to_ext[$mime];
             }
@@ -106,7 +117,7 @@ webchanges_connector_register_ability('media-replace-file', [
         $allow_ext_change = (bool) ($input['allow_extension_change'] ?? false);
         $extension_changed = ($new_ext !== '' && $new_ext !== $current_ext);
         if ($extension_changed && !$allow_ext_change) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return new \WP_Error('extension_mismatch', sprintf('New file has extension ".%s" but the existing attachment is ".%s". Pass allow_extension_change:true to accept the rename (the URL filename will change).', $new_ext, $current_ext));
         }
 
@@ -118,16 +129,16 @@ webchanges_connector_register_ability('media-replace-file', [
         // Move temp into place. copy + unlink so we replace the inode without
         // touching ownership/permissions a rename would inherit.
         if (!@copy($tmp, $target_path)) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return new \WP_Error('replace_failed', sprintf('Could not write to "%s".', $target_path));
         }
-        @unlink($tmp);
+        wp_delete_file($tmp);
 
         // If extension changed, delete the old file and update _wp_attached_file.
         $warnings = [];
         if ($extension_changed) {
             if ($current_file !== $target_path && file_exists($current_file)) {
-                @unlink($current_file);
+                wp_delete_file($current_file);
             }
             $uploads = wp_get_upload_dir();
             $rel = ltrim(str_replace(wp_normalize_path($uploads['basedir']), '', wp_normalize_path($target_path)), '/');

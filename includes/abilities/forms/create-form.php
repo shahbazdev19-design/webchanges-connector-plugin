@@ -148,6 +148,7 @@ webchanges_connector_register_ability('forms-create-form', [
                         '1' => [
                             'notification_name' => __('Default Notification', 'webchanges-connector'),
                             'email' => $notify,
+                            /* translators: %s is the form title */
                             'subject' => sprintf(__('New entry: %s', 'webchanges-connector'), $title),
                             'sender_name' => get_bloginfo('name'),
                             'sender_address' => '{admin_email}',
@@ -252,7 +253,7 @@ webchanges_connector_register_ability('forms-create-form', [
             $form_fields = ['fields' => $ff_fields, 'submitButton' => ['uniqElKey' => 'submit', 'element' => 'button', 'attributes' => ['type' => 'submit', 'class' => '']]];
             $table = $wpdb->prefix . 'fluentform_forms';
             $now = current_time('mysql');
-            $ok = $wpdb->insert($table, [
+            $ok = $wpdb->insert($table, [ // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- third-party Fluent Forms table (no WP API); table name is a trusted identifier; on-demand write, caching N/A
                 'title' => $title,
                 'form_fields' => wp_json_encode($form_fields),
                 'status' => 'published',

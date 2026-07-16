@@ -77,7 +77,7 @@ webchanges_connector_register_ability('media-find-unused', [
         // Step 1: featured-image usage. One query for the whole batch.
         $placeholders = implode(',', array_fill(0, count($ids), '%d'));
         $sql = "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id' AND meta_value IN ($placeholders)";
-        $thumb_used_raw = $wpdb->get_col($wpdb->prepare($sql, ...$ids));
+        $thumb_used_raw = $wpdb->get_col($wpdb->prepare($sql, ...$ids)); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- core postmeta table; only %d placeholders are interpolated and the query IS prepared; direct on-demand usage scan, caching N/A
         $thumb_used = array_flip(array_map('intval', (array) $thumb_used_raw));
 
         // Step 2: scan post_content + post_meta value for filename / id mentions.
@@ -115,7 +115,7 @@ webchanges_connector_register_ability('media-find-unused', [
             $like_params[] = '%' . $wpdb->esc_like($fname) . '%';
         }
         $content_sql = "SELECT DISTINCT post_content FROM {$wpdb->posts} WHERE post_type != 'attachment' AND post_status IN ($status_placeholders) AND (" . implode(' OR ', $like_clauses) . ')';
-        $content_rows = (array) $wpdb->get_col($wpdb->prepare($content_sql, ...array_merge($statuses, $like_params)));
+        $content_rows = (array) $wpdb->get_col($wpdb->prepare($content_sql, ...array_merge($statuses, $like_params))); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- core posts table; only %s placeholders are interpolated and the query IS prepared; direct on-demand usage scan, caching N/A
         // For each matched content blob, mark which filenames hit.
         $filename_used = [];
         foreach ($content_rows as $blob) {
@@ -140,7 +140,7 @@ webchanges_connector_register_ability('media-find-unused', [
             $meta_like_params[] = '%:' . $att_id . ';%';
         }
         $meta_sql = "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key != '_wp_attached_file' AND meta_key != '_wp_attachment_metadata' AND meta_key != '_wp_attachment_image_alt' AND meta_key != '_wp_attachment_backup_sizes' AND meta_key != '_edit_lock' AND meta_key != '_edit_last' AND (" . implode(' OR ', $meta_like_clauses) . ')';
-        $meta_rows = (array) $wpdb->get_col($wpdb->prepare($meta_sql, ...$meta_like_params));
+        $meta_rows = (array) $wpdb->get_col($wpdb->prepare($meta_sql, ...$meta_like_params)); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- core postmeta table; only %s placeholders are interpolated and the query IS prepared; direct on-demand usage scan, caching N/A
         $meta_used = [];
         foreach ($meta_rows as $blob) {
             foreach ($filenames_per_id as $att_id => $fname) {

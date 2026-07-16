@@ -44,7 +44,7 @@ webchanges_connector_register_ability('seo-create-redirect', [
     'execute_callback' => static function (array $input): array {
         global $wpdb;
         $table = $wpdb->prefix . 'rank_math_redirections';
-        $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+        $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
         if (!$exists) {
             return ['success' => false, 'error' => sprintf('Table %s does not exist. Is Rank Math\'s redirection module active?', $table)];
         }
@@ -74,7 +74,7 @@ webchanges_connector_register_ability('seo-create-redirect', [
         }
 
         $now = current_time('mysql', true);
-        $ok = $wpdb->insert($table, [
+        $ok = $wpdb->insert($table, [ // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
             'sources' => maybe_serialize($clean_sources),
             'url_to' => (string) ($input['url_to'] ?? ''),
             'header_code' => $header_code,

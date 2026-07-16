@@ -78,7 +78,7 @@ function webchanges_connector_elementor_write(int $post_id, array $elements): in
     $upload_dir = wp_get_upload_dir();
     $css_path = trailingslashit($upload_dir['basedir']) . 'elementor/css/post-' . $post_id . '.css';
     if (file_exists($css_path)) {
-        @unlink($css_path);
+        wp_delete_file($css_path);
     }
     return count($elements);
 }

@@ -35,7 +35,7 @@ webchanges_connector_register_ability('seo-delete-redirect', [
         if ($id <= 0) {
             return ['success' => false, 'error' => 'id is required'];
         }
-        $ok = $wpdb->delete($table, ['id' => $id], ['%d']);
+        $ok = $wpdb->delete($table, ['id' => $id], ['%d']); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
         return ['id' => $id, 'deleted' => $ok !== false && $ok > 0];
     },
     'meta' => [

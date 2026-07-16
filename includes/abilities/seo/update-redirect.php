@@ -49,7 +49,7 @@ webchanges_connector_register_ability('seo-update-redirect', [
         if ($id <= 0) {
             return ['success' => false, 'error' => 'id is required'];
         }
-        $existing = $wpdb->get_row($wpdb->prepare("SELECT id FROM $table WHERE id = %d", $id));
+        $existing = $wpdb->get_row($wpdb->prepare("SELECT id FROM $table WHERE id = %d", $id)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
         if (!$existing) {
             return ['success' => false, 'error' => sprintf('Redirect %d not found', $id)];
         }
@@ -97,7 +97,7 @@ webchanges_connector_register_ability('seo-update-redirect', [
         $data['updated'] = current_time('mysql', true);
         $formats[] = '%s';
 
-        $ok = $wpdb->update($table, $data, ['id' => $id], $formats, ['%d']);
+        $ok = $wpdb->update($table, $data, ['id' => $id], $formats, ['%d']); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
         if ($ok === false) {
             return ['success' => false, 'error' => 'Update failed: ' . $wpdb->last_error];
         }

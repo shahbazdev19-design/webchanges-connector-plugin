@@ -54,7 +54,7 @@ webchanges_connector_register_ability('upload-media', [
             return new \WP_Error('tmp_failed', 'Could not allocate tmp file.');
         }
         if (file_put_contents($tmp, $binary) === false) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return new \WP_Error('write_failed', 'Could not write tmp file.');
         }
 
@@ -74,7 +74,7 @@ webchanges_connector_register_ability('upload-media', [
         ]);
 
         if (is_wp_error($attachment_id)) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return $attachment_id;
         }
 

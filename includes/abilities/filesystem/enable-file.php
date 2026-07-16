@@ -43,7 +43,7 @@ webchanges_connector_register_ability('enable-file', [
         if (file_exists($to)) {
             return new \WP_Error('conflict', sprintf('Cannot re-enable: %s already exists.', $to));
         }
-        if (!@rename($resolved, $to)) {
+        if (!@rename($resolved, $to)) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- atomic rename of a project file; WP_Filesystem::move needs init and isn't atomic
             return new \WP_Error('rename_failed', 'Failed to rename file.');
         }
         return ['from' => $resolved, 'to' => $to];

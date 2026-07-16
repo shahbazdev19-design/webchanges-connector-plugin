@@ -74,7 +74,7 @@ webchanges_connector_register_ability('media-bulk-generate-alt', [
                 $args['post_mime_type'] = rtrim($mime_prefix, '/') . '/*';
             }
             if ($only_missing && !$overwrite) {
-                $args['meta_query'] = [
+                $args['meta_query'] = [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- required to find attachments missing alt text for this ability
                     'relation' => 'OR',
                     ['key' => '_wp_attachment_image_alt', 'compare' => 'NOT EXISTS'],
                     ['key' => '_wp_attachment_image_alt', 'value' => '', 'compare' => '='],

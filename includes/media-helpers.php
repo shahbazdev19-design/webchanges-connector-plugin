@@ -113,14 +113,14 @@ function webchanges_connector_img_encode_raster(string $file, string $fmt, int $
             $im->destroy();
             return ['path' => $tmp, 'w' => $w, 'h' => $h];
         } catch (\Throwable $e) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return null;
         }
     }
     // GD
     $img = ($fmt === 'jpeg') ? @imagecreatefromjpeg($file) : @imagecreatefromwebp($file);
     if (!$img) {
-        @unlink($tmp);
+        wp_delete_file($tmp);
         return null;
     }
     if ($fmt === 'jpeg' && function_exists('exif_read_data')) {
@@ -190,18 +190,18 @@ function webchanges_connector_img_encode_png(string $file, int $edge, string $li
             $im->destroy();
             return ['path' => $tmp, 'w' => $w, 'h' => $h];
         } catch (\Throwable $e) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return null;
         }
     }
     // GD: lossless only (no palette quantize)
     if ($quantize) {
-        @unlink($tmp);
+        wp_delete_file($tmp);
         return null;
     }
     $img = @imagecreatefrompng($file);
     if (!$img) {
-        @unlink($tmp);
+        wp_delete_file($tmp);
         return null;
     }
     $cw = imagesx($img);
@@ -306,7 +306,7 @@ function webchanges_connector_compress_image(int $id, array $o): array
                 break;
             }
             if ($enc) {
-                @unlink($enc['path']);
+                wp_delete_file($enc['path']);
             }
         }
         // 2) palette quantize (Imagick only)
@@ -318,7 +318,7 @@ function webchanges_connector_compress_image(int $id, array $o): array
                     break;
                 }
                 if ($enc) {
-                    @unlink($enc['path']);
+                    wp_delete_file($enc['path']);
                 }
             }
         }
@@ -343,7 +343,7 @@ function webchanges_connector_compress_image(int $id, array $o): array
                     $best = $enc + ['action' => ($edge < $long ? "downscaled:{$enc['w']}x{$enc['h']} q{$q}" : "quality:{$q}")];
                     break 2;
                 }
-                @unlink($enc['path']);
+                wp_delete_file($enc['path']);
             }
         }
         // Best-effort: smallest allowed edge at the quality floor, with a warning.
@@ -365,26 +365,26 @@ function webchanges_connector_compress_image(int $id, array $o): array
     $row['warnings'] = $warnings;
 
     if (!empty($o['dry_run'])) {
-        @unlink($best['path']);
+        wp_delete_file($best['path']);
         $row['action'] = '[dry-run] ' . $row['action'];
         return $row;
     }
 
     // Verify before committing (rule 7).
     if (!webchanges_connector_image_ok($best['path'])) {
-        @unlink($best['path']);
+        wp_delete_file($best['path']);
         return $row + ['error' => 'output failed verification; original left untouched'];
     }
 
     if (!empty($o['keep_backup'])) {
         @copy($file, $file . '.bak');
     }
-    if (!@rename($best['path'], $file)) {
+    if (!@rename($best['path'], $file)) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- atomic move of the verified temp output over the original; WP_Filesystem::move needs init and isn't atomic
         if (!@copy($best['path'], $file)) {
-            @unlink($best['path']);
+            wp_delete_file($best['path']);
             return $row + ['error' => 'could not write output over original'];
         }
-        @unlink($best['path']);
+        wp_delete_file($best['path']);
     }
 
     if (!function_exists('wp_generate_attachment_metadata')) {
@@ -415,13 +415,13 @@ function webchanges_connector_resolve_attachment($ref): int
         if ($id) {
             return (int) $id;
         }
-        $ref = basename(parse_url($ref, PHP_URL_PATH) ?: $ref);
+        $ref = basename(wp_parse_url($ref, PHP_URL_PATH) ?: $ref);
     }
     // Match by the stored relative file path ending in this basename.
     global $wpdb;
     $base = basename($ref);
     $like = '%/' . $wpdb->esc_like($base);
-    $id = $wpdb->get_var($wpdb->prepare(
+    $id = $wpdb->get_var($wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- core postmeta lookup by attached-file path; query is prepared; on-demand resolution, caching N/A
         "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND (meta_value = %s OR meta_value LIKE %s) LIMIT 1",
         $base,
         $like

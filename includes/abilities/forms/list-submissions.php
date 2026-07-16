@@ -55,8 +55,8 @@ webchanges_connector_register_ability('forms-list-submissions', [
         switch ($provider) {
             case 'wpforms':
                 $table = $wpdb->prefix . 'wpforms_entries';
-                if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table) {
-                    $rows = $wpdb->get_results($wpdb->prepare("SELECT entry_id, form_id, fields, date FROM $table WHERE form_id = %d ORDER BY entry_id DESC LIMIT %d OFFSET %d", $form_id, $per_page, $offset), ARRAY_A);
+                if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
+                    $rows = $wpdb->get_results($wpdb->prepare("SELECT entry_id, form_id, fields, date FROM $table WHERE form_id = %d ORDER BY entry_id DESC LIMIT %d OFFSET %d", $form_id, $per_page, $offset), ARRAY_A); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
                     foreach ((array) $rows as $r) {
                         $submissions[] = [
                             'id' => (int) $r['entry_id'],
@@ -92,8 +92,8 @@ webchanges_connector_register_ability('forms-list-submissions', [
                 break;
             case 'forminator':
                 $table = $wpdb->prefix . 'frmt_form_entry';
-                if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table) {
-                    $rows = $wpdb->get_results($wpdb->prepare("SELECT entry_id, date_created FROM $table WHERE form_id = %d ORDER BY entry_id DESC LIMIT %d OFFSET %d", $form_id, $per_page, $offset), ARRAY_A);
+                if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
+                    $rows = $wpdb->get_results($wpdb->prepare("SELECT entry_id, date_created FROM $table WHERE form_id = %d ORDER BY entry_id DESC LIMIT %d OFFSET %d", $form_id, $per_page, $offset), ARRAY_A); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
                     foreach ((array) $rows as $r) {
                         $submissions[] = ['id' => (int) $r['entry_id'], 'date' => (string) $r['date_created'], 'fields' => []];
                     }
@@ -101,8 +101,8 @@ webchanges_connector_register_ability('forms-list-submissions', [
                 break;
             case 'fluent':
                 $table = $wpdb->prefix . 'fluentform_submissions';
-                if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table) {
-                    $rows = $wpdb->get_results($wpdb->prepare("SELECT id, form_id, response, created_at FROM $table WHERE form_id = %d ORDER BY id DESC LIMIT %d OFFSET %d", $form_id, $per_page, $offset), ARRAY_A);
+                if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
+                    $rows = $wpdb->get_results($wpdb->prepare("SELECT id, form_id, response, created_at FROM $table WHERE form_id = %d ORDER BY id DESC LIMIT %d OFFSET %d", $form_id, $per_page, $offset), ARRAY_A); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,PluginCheck.Security.DirectDB.UnescapedDBParameter -- third-party plugin table (no WP API); values are prepared, table name is a trusted identifier; on-demand query, caching N/A
                     foreach ((array) $rows as $r) {
                         $submissions[] = [
                             'id' => (int) $r['id'],
