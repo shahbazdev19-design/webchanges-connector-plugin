@@ -57,6 +57,9 @@ require_once WEBCHANGES_CONNECTOR_DIR . 'includes/elementor-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/forms-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/yoast-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/media-helpers.php';
+require_once WEBCHANGES_CONNECTOR_DIR . 'includes/jobs.php';
+require_once WEBCHANGES_CONNECTOR_DIR . 'includes/image-delivery-muplugin.php';
+require_once WEBCHANGES_CONNECTOR_DIR . 'includes/media-optimize-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/image-gen-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/stock-helpers.php';
 require_once WEBCHANGES_CONNECTOR_DIR . 'includes/skills-helpers.php';
@@ -291,6 +294,8 @@ add_action('wp_abilities_api_init', static function () {
         'media/edit-image.php',
         'media/find-unused.php',
         'media/compress.php',
+        'media/optimize.php',
+        'media/optimize-status.php',
     ] as $rel) {
         require_once $dir . $rel;
     }
