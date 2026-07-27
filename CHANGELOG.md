@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0 - 2026-07-28
+
+- Autonomous media-optimize subsystem: one-call background image optimization (self-targeting scan, snapshot + downscale/recompress from pristine master, WebP/AVIF siblings served under original URL via output-buffer mu-plugin, idempotent, reversible) via a reusable background-job engine; media-optimize + media-optimize-status abilities
+
 ## 0.6.3 - 2026-07-17
 
 - Plugin Check cleanup (0 errors/0 warnings) + pre-release security hardening: secret-file read denylist, SSRF redirect/guard fixes, SVG stored-XSS fix, disable MCP default server, WP 6.9 requirement, readme.txt + composer.json
