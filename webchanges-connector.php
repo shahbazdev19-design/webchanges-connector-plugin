@@ -308,6 +308,7 @@ add_action('wp_abilities_api_init', static function () {
     // Bricks Builder bridge — register only when Bricks is active so the
     // abilities don't appear as dead links on non-Bricks sites.
     if (defined('BRICKS_VERSION') && class_exists('\\Bricks\\Database')) {
+        require_once WEBCHANGES_CONNECTOR_DIR . 'includes/bricks-design-compiler.php';
         foreach ([
             'bricks/get-elements.php',
             'bricks/set-elements.php',
@@ -319,6 +320,7 @@ add_action('wp_abilities_api_init', static function () {
             'bricks/list-element-types.php',
             'bricks/import-html.php',
             'bricks/import-json.php',
+            'bricks/build-from-design.php',
             'bricks/update-global-css.php',
         ] as $rel) {
             require_once $dir . $rel;
