@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0 - 2026-08-09
+
+- Add bricks-build-from-design: compile a Claude Design HTML/CSS export into a high-fidelity importable Bricks structure in one call (native tree, global classes with dedup + r-prefix applied by ID, font-family stripped, assets resolved/uploaded/compressed to Media, inline SVG handling, JS-behaviour detection, validation + QA checklist), with optional apply to a draft page; attribute plugin to Shahbaz Dev
+
 ## 0.7.0 - 2026-07-28
 
 - Autonomous media-optimize subsystem: one-call background image optimization (self-targeting scan, snapshot + downscale/recompress from pristine master, WebP/AVIF siblings served under original URL via output-buffer mu-plugin, idempotent, reversible) via a reusable background-job engine; media-optimize + media-optimize-status abilities
