@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1 - 2026-08-22
+
+- Header polish (new W icon, segmented bordered nav, compact heading), SearchActions author attribution with a by-Sam credit, and Plugin Check fixes (readme Stable tag auto-synced, Tested up to 7.1, LiteSpeed + AI-provider suppressions)
+
 ## 0.8.0 - 2026-08-09
 
 - Add bricks-build-from-design: compile a Claude Design HTML/CSS export into a high-fidelity importable Bricks structure in one call (native tree, global classes with dedup + r-prefix applied by ID, font-family stripped, assets resolved/uploaded/compressed to Media, inline SVG handling, JS-behaviour detection, validation + QA checklist), with optional apply to a draft page; attribute plugin to Shahbaz Dev
