@@ -22,14 +22,14 @@ function webchanges_image_gen_providers(): array
             'models' => ['gpt-image-1', 'dall-e-3'],
             'sizes' => ['auto', '1024x1024', '1024x1536', '1536x1024'],
             'supports_edit' => true,
-            'api_url' => 'https://api.openai.com/v1/images',
+            'api_url' => 'https://api.openai.com/v1/images', // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- multi-provider image generation via user-configured API keys; WP 7.0 AI Client not yet mainstream
         ],
         'gemini' => [
             'label' => __('Google Gemini (Nano Banana / Imagen)', 'webchanges-connector'),
             'models' => ['nano-banana-pro-preview', 'gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'imagen-4.0-ultra-generate-001', 'imagen-4.0-generate-001', 'imagen-4.0-fast-generate-001'],
             'sizes' => ['1024x1024', '1024x1792', '1792x1024'],
             'supports_edit' => true,
-            'api_url' => 'https://generativelanguage.googleapis.com/v1beta/models',
+            'api_url' => 'https://generativelanguage.googleapis.com/v1beta/models', // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- multi-provider image generation via user-configured API keys; WP 7.0 AI Client not yet mainstream
         ],
         'replicate' => [
             'label' => __('Replicate (Flux / SDXL / Recraft)', 'webchanges-connector'),
@@ -226,7 +226,7 @@ function webchanges_image_gen_call_openai(string $prompt, array $opts)
         $body .= base64_decode($opts['reference_image_b64']) . "\r\n";
         $body .= "--$boundary--\r\n";
 
-        $response = wp_remote_post('https://api.openai.com/v1/images/edits', [
+        $response = wp_remote_post('https://api.openai.com/v1/images/edits', [ // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- multi-provider image generation via user-configured API keys; WP 7.0 AI Client not yet mainstream
             'headers' => [
                 'Authorization' => 'Bearer ' . $opts['api_key'],
                 'Content-Type' => 'multipart/form-data; boundary=' . $boundary,
@@ -247,7 +247,7 @@ function webchanges_image_gen_call_openai(string $prompt, array $opts)
         } else {
             $payload['response_format'] = 'b64_json';
         }
-        $response = wp_remote_post('https://api.openai.com/v1/images/generations', [
+        $response = wp_remote_post('https://api.openai.com/v1/images/generations', [ // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- multi-provider image generation via user-configured API keys; WP 7.0 AI Client not yet mainstream
             'headers' => [
                 'Authorization' => 'Bearer ' . $opts['api_key'],
                 'Content-Type' => 'application/json',
@@ -302,7 +302,7 @@ function webchanges_image_gen_call_gemini(string $prompt, array $opts)
     $use_imagen_predict = str_starts_with($model, 'imagen-');
     if ($use_imagen_predict) {
         // Imagen has a separate predict endpoint.
-        $endpoint = sprintf('https://generativelanguage.googleapis.com/v1beta/models/%s:predict?key=%s', rawurlencode($model), rawurlencode($opts['api_key']));
+        $endpoint = sprintf('https://generativelanguage.googleapis.com/v1beta/models/%s:predict?key=%s', rawurlencode($model), rawurlencode($opts['api_key'])); // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- multi-provider image generation via user-configured API keys; WP 7.0 AI Client not yet mainstream
         $payload = [
             'instances' => [['prompt' => $prompt]],
             'parameters' => [
@@ -317,7 +317,7 @@ function webchanges_image_gen_call_gemini(string $prompt, array $opts)
         ]);
     } else {
         // Gemini generateContent (Nano Banana). Multimodal: text + optional reference image.
-        $endpoint = sprintf('https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s', rawurlencode($model), rawurlencode($opts['api_key']));
+        $endpoint = sprintf('https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s', rawurlencode($model), rawurlencode($opts['api_key'])); // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- multi-provider image generation via user-configured API keys; WP 7.0 AI Client not yet mainstream
         $parts = [['text' => $prompt]];
         if ($is_edit) {
             $parts[] = [

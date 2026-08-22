@@ -456,7 +456,7 @@ function webchanges_connector_purge_all_caches(): void
         wp_cache_clear_cache(); // WP Super Cache
     }
     if (defined('LSCWP_V')) {
-        do_action('litespeed_purge_all');
+        do_action('litespeed_purge_all'); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- firing LiteSpeed Cache's own documented purge hook
     }
     if (function_exists('sg_cachepress_purge_cache')) {
         sg_cachepress_purge_cache();

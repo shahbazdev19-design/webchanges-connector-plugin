@@ -128,15 +128,35 @@ function webchanges_connector_render_admin_page(): void
         }
         .wc-brand { display: flex; align-items: center; gap: 14px; }
         .wc-logo {
-            width: 42px; height: 42px; border-radius: 12px;
-            background: linear-gradient(135deg, #7c5cff 0%, #3e7bff 50%, #ff5cad 100%);
-            box-shadow: 0 8px 24px rgba(124, 92, 255, 0.35), inset 0 1px 0 rgba(255,255,255,0.4);
-            display: grid; place-items: center;
-            color: white; font-weight: 700; font-size: 20px;
-            letter-spacing: -0.5px;
+            width: 40px; height: 40px; border-radius: 11px;
+            object-fit: cover; display: block;
+            box-shadow: 0 8px 22px -10px rgba(124, 92, 255, 0.55);
         }
-        .wc-brand-title { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
-        .wc-brand-sub { font-size: 12px; color: var(--wc-fg-muted); }
+        .wc-brand-title { font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
+        .wc-brand-sub { font-size: 10px; color: var(--wc-fg-muted); }
+        .wc-brand-by { font-size: 10px; color: var(--wc-fg-faint); margin-top: 2px; }
+        .wc-brand-by a { color: var(--wc-fg-muted); text-decoration: none; }
+        .wc-brand-by a:hover { color: var(--wc-fg); }
+
+        .wc-header-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+        .wc-nav {
+            display: inline-flex; gap: 2px; padding: 4px; flex-wrap: wrap;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--wc-glass-border, rgba(255,255,255,0.08));
+            border-radius: 12px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 24px -18px rgba(0,0,0,0.9);
+        }
+        .wc-nav a {
+            padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+            color: var(--wc-fg-muted); border: 1px solid transparent; text-decoration: none;
+            transition: all 150ms ease;
+        }
+        .wc-nav a:hover { color: var(--wc-fg); background: rgba(255,255,255,0.05); }
+        .wc-nav a.active {
+            color: var(--wc-fg); background: var(--wc-glass-strong, rgba(255,255,255,0.08));
+            border-color: var(--wc-glass-border-strong, rgba(255,255,255,0.14));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 14px -8px rgba(0,0,0,0.8);
+        }
 
         .wc-status-pill {
             display: inline-flex; align-items: center; gap: 8px;
@@ -570,15 +590,24 @@ function webchanges_connector_render_admin_page(): void
     <div class="wc-shell">
         <div class="wc-header">
             <div class="wc-brand">
-                <div class="wc-logo">W</div>
+                <img class="wc-logo" src="<?php echo esc_url(WEBCHANGES_CONNECTOR_URL . 'assets/icon-256x256.png'); ?>" alt="" />
                 <div>
                     <div class="wc-brand-title"><?php esc_html_e('Webchanges Connector', 'webchanges-connector'); ?></div>
                     <div class="wc-brand-sub"><?php /* translators: %s is the plugin version */ printf(esc_html__('v%s · MCP endpoint for AI agents', 'webchanges-connector'), esc_html(WEBCHANGES_CONNECTOR_VERSION)); ?></div>
+                    <div class="wc-brand-by"><?php esc_html_e('by', 'webchanges-connector'); ?> <a href="https://shahbazdev.com/" target="_blank" rel="noopener">Sam</a></div>
                 </div>
             </div>
-            <div class="wc-status-pill <?php echo $enabled ? 'on' : ''; ?>">
-                <span class="wc-status-dot"></span>
-                <?php echo $enabled ? esc_html__('Connector active', 'webchanges-connector') : esc_html__('Connector inactive', 'webchanges-connector'); ?>
+            <div class="wc-header-right">
+                <nav class="wc-nav">
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=webchanges-connector-skills')); ?>"><?php esc_html_e('Skills', 'webchanges-connector'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=webchanges-connector-images')); ?>"><?php esc_html_e('Images', 'webchanges-connector'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=webchanges-connector-abilities')); ?>"><?php esc_html_e('Abilities', 'webchanges-connector'); ?></a>
+                    <a href="https://www.searchactions.com/" target="_blank" rel="noopener"><?php esc_html_e('Author', 'webchanges-connector'); ?></a>
+                </nav>
+                <div class="wc-status-pill <?php echo $enabled ? 'on' : ''; ?>">
+                    <span class="wc-status-dot"></span>
+                    <?php echo $enabled ? esc_html__('Connector active', 'webchanges-connector') : esc_html__('Connector inactive', 'webchanges-connector'); ?>
+                </div>
             </div>
         </div>
 

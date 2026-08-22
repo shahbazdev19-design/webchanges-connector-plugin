@@ -41,7 +41,7 @@ if [ ! -f "$MAIN" ]; then
 fi
 
 # Refuse to release a dirty tree (other than the files we're about to touch).
-if [ -n "$(git status --porcelain | grep -vE 'webchanges-connector\.php|CHANGELOG\.md' || true)" ]; then
+if [ -n "$(git status --porcelain | grep -vE 'webchanges-connector\.php|CHANGELOG\.md|readme\.txt' || true)" ]; then
   echo "Working tree has uncommitted changes outside the version files. Commit or stash first." >&2
   git status --short >&2
   exit 1
@@ -51,6 +51,10 @@ fi
 sed -i -E "s/^(\s*\*\s*Version:\s*).*/\1${VERSION}/" "$MAIN"
 # 2. Bump the constant:     define('WEBCHANGES_CONNECTOR_VERSION', 'X.Y.Z');
 sed -i -E "s/(define\('WEBCHANGES_CONNECTOR_VERSION',\s*')[^']*('\);)/\1${VERSION}\2/" "$MAIN"
+# 2b. Keep readme.txt "Stable tag" in lockstep so Plugin Check never flags a mismatch.
+if [ -f readme.txt ]; then
+  sed -i -E "s/^(Stable tag:\s*).*/\1${VERSION}/" readme.txt
+fi
 
 # 3. Changelog.
 DATE="$(date +%Y-%m-%d)"
@@ -70,6 +74,7 @@ grep -E "^\s*\*\s*Version:" "$MAIN"
 grep -E "WEBCHANGES_CONNECTOR_VERSION'," "$MAIN"
 
 git add "$MAIN" CHANGELOG.md
+[ -f readme.txt ] && git add readme.txt
 git commit -m "Release v${VERSION}: ${MESSAGE}"
 git tag -a "v${VERSION}" -m "v${VERSION}: ${MESSAGE}"
 

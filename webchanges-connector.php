@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 /**
  * Plugin Name: Webchanges Connector
- * Plugin URI: https://shahbazdev.com/
+ * Plugin URI: https://www.searchactions.com/
  * Description: Connect WordPress to any MCP-compatible AI client so agents can manage content, blocks, media, SEO, taxonomies, menus, users, WooCommerce, ACF, and site settings over the Model Context Protocol.
  * Version: 0.8.0
  * Requires at least: 6.9
  * Requires PHP: 8.0
- * Author: Shahbaz Dev
- * Author URI: https://shahbazdev.com/
+ * Author: SearchActions
+ * Author URI: https://www.searchactions.com/
  * License: AGPL-3.0-or-later
  * Text Domain: webchanges-connector
  */
